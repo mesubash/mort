@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="mort">
+  <style>
+    .bob { animation: bob 3s ease-in-out infinite; }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    .look { animation: look 8s ease-in-out infinite; }
+    @keyframes look { 0%, 10%, 66%, 100% { transform: translateX(0); } 22%, 34% { transform: translateX(-6px); } 46%, 58% { transform: translateX(6px); } }
+    .eye { transform-box: fill-box; transform-origin: center; animation: blink 8s infinite; }
+    @keyframes blink { 0%, 76%, 80%, 100% { transform: scaleY(1); } 78% { transform: scaleY(.1); } }
+    .smile { animation: smile 8s ease-in-out infinite; }
+    @keyframes smile { 0%, 10%, 68%, 100% { opacity: 1; } 16%, 62% { opacity: 0; } }
+    .tap { animation: tap 8s ease-in-out infinite; }
+    .tap.r { animation-delay: .25s; }
+    @keyframes tap { 0%, 84%, 100% { transform: translateY(0); } 87% { transform: translateY(-5px); } 90% { transform: translateY(0); } 93% { transform: translateY(-3px); } 96% { transform: translateY(0); } }
+    .cursor { animation: cursor 1s steps(1) infinite; }
+    @keyframes cursor { 50% { opacity: 0; } }
+    .turn { transform-origin: 128px 150px; animation: turn 8s ease-in-out infinite; }
+    @keyframes turn { 0%, 10%, 66%, 100% { transform: rotate(0); } 22%, 34% { transform: rotate(-4deg); } 46%, 58% { transform: rotate(4deg); } }
+    .face { animation: face 8s ease-in-out infinite; }
+    @keyframes face { 0%, 10%, 66%, 100% { transform: translateX(0); } 22%, 34% { transform: translateX(-4px); } 46%, 58% { transform: translateX(4px); } }
+    .glint { animation: glint 8s ease-in-out infinite; }
+    @keyframes glint { 0%, 10%, 66%, 100% { transform: translate(0, 0); } 22%, 34% { transform: translate(-4px, 2px); } 46%, 58% { transform: translate(8px, 2px); } }
+    .blush { animation: blush 8s ease-in-out infinite; }
+    @keyframes blush { 0%, 10%, 68%, 100% { opacity: .9; } 18%, 60% { opacity: .2; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <rect width="256" height="256" rx="48" fill="#161b22"/>
+  <g class="bob"><g class="turn">
+    <path d="M68 150 C68 50 188 50 188 150 z" fill="#f0f6fc"/>
+    <g class="look">
+      <g class="eye"><ellipse cx="108" cy="104" rx="13" ry="17" fill="#161b22"/><circle class="glint" cx="104" cy="98" r="5" fill="#fff"/></g>
+      <g class="eye"><ellipse cx="148" cy="104" rx="13" ry="17" fill="#161b22"/><circle class="glint" cx="144" cy="98" r="5" fill="#fff"/></g>
+    </g>
+    <g class="face"><ellipse class="blush" cx="88" cy="124" rx="10" ry="6" fill="#f78fb3"/>
+    <ellipse class="blush" cx="168" cy="124" rx="10" ry="6" fill="#f78fb3"/>
+    <path class="smile" d="M118 124 q10 9 20 0" stroke="#161b22" stroke-width="4.5" fill="none" stroke-linecap="round"/></g>
+  </g></g>
+  <rect x="40" y="132" width="176" height="96" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="4"/>
+  <path d="M60 162 l14 12 -14 12" stroke="#3fb950" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="cursor" x="84" y="180" width="26" height="6" rx="3" fill="#3fb950"/>
+  <rect x="60" y="202" width="96" height="6" rx="3" fill="#30363d"/>
+  <g fill="#f0f6fc">
+    <g class="tap"><circle cx="74" cy="134" r="8"/><circle cx="88" cy="132" r="8"/></g>
+    <g class="tap r"><circle cx="168" cy="132" r="8"/><circle cx="182" cy="134" r="8"/></g>
+  </g>
+</svg>

@@ -1,3 +1,5 @@
+<img src="docs/mort.svg" width="96" alt="">
+
 # mort
 
 mort holds on to every long job you start (training runs, data jobs, scrapers, remote scripts, hosted notebooks) and tells you when one dies, stalls or finishes.
