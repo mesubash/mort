@@ -32,3 +32,8 @@ def load_config():
         return {}
     with open(path, "rb") as f:
         return tomllib.load(f)
+
+
+def job_files(name):
+    logs = HOME / "logs"
+    return logs / f"{name}.log", logs / f"{name}.exit"

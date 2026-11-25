@@ -56,3 +56,52 @@ class Run(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Status(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old_home, state.HOME = state.HOME, Path(self.tmp.name)
+        (state.HOME / "logs").mkdir()
+
+    def tearDown(self):
+        state.HOME = self.old_home
+        self.tmp.cleanup()
+
+    def job(self, name, pid, code=None, log_age=0):
+        from mort.jobs import status
+        log, exit_file = state.job_files(name)
+        log.write_text("x")
+        t = time.time() - log_age
+        os.utime(log, (t, t))
+        if code is not None:
+            exit_file.write_text(f"{code}\n")
+        return status({"name": name, "pid": pid, "started": time.time() - 100, "stall_after": 60})[0]
+
+    def test_states(self):
+        self.assertEqual(self.job("a", 999999, code=0), "finished")
+        self.assertEqual(self.job("b", 999999, code=1), "died")
+        self.assertEqual(self.job("c", 999999), "died")
+        self.assertEqual(self.job("d", os.getpid(), log_age=120), "stalled")
+        self.assertEqual(self.job("e", os.getpid(), log_age=5), "running")
+
+
+class Kill(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def test_kill_records_exit_and_frees_lock(self):
+        from mort.jobs import kill
+        start(["sleep", "30"], "k", lock={"path": str(self.lock)})
+        time.sleep(0.3)
+        self.assertTrue(self.lock.exists())
+        self.assertTrue(kill("k", confirm=lambda _: "y"))
+        self.assertTrue(wait_for(state.HOME / "logs" / "k.exit"))
+        self.assertNotEqual((state.HOME / "logs" / "k.exit").read_text().strip(), "0")
+        time.sleep(0.2)
+        self.assertFalse(self.lock.exists())
+
+    def test_kill_needs_yes(self):
+        from mort.jobs import kill
+        name, pid, _ = start(["sleep", "30"], "k2")
+        self.assertFalse(kill("k2", confirm=lambda _: ""))
+        os.killpg(pid, 9)

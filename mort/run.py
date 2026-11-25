@@ -13,7 +13,10 @@ NAME = re.compile(r"[A-Za-z0-9._-]+")
 
 # Runs the job, saves its exit code, then frees the lock if the lock still names this wrapper.
 # The first loop waits for mort to write the lock, so a job that ends at once still frees it.
+# The TERM trap keeps the wrapper alive through `mort kill` (which signals the whole group) so it
+# can still clean up; a handler, unlike an ignore, is not inherited by the job.
 WRAPPER = r'''
+trap ':' TERM
 lock_pid() { awk -v f="$MORT_PID_FIELD" '{print $f; exit}' "$MORT_LOCK" 2>/dev/null; }
 i=0
 while [ -n "$MORT_LOCK" ] && [ "$(lock_pid)" != "$$" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done
@@ -21,6 +24,16 @@ while [ -n "$MORT_LOCK" ] && [ "$(lock_pid)" != "$$" ] && [ $i -lt 50 ]; do slee
 echo $? > "$MORT_EXIT"
 if [ -n "$MORT_LOCK" ] && [ "$(lock_pid)" = "$$" ]; then rm -f "$MORT_LOCK"; fi
 '''
+
+
+def lock_settings(lock):
+    """Return (path, format, 1-based PID field) from the [lock] config table."""
+    path = Path(lock.get("path", state.HOME / "lock")).expanduser()
+    fmt = lock.get("format", "{name} {pid} {start}")
+    fields = fmt.split()
+    if "{pid}" not in fields:
+        raise SystemExit("mort: [lock] format needs {pid} as its own word")
+    return path, fmt, fields.index("{pid}") + 1
 
 
 def start(cmd, name=None, stall_after=1200, lock=None):
@@ -35,19 +48,13 @@ def start(cmd, name=None, stall_after=1200, lock=None):
 
     lock_path, pid_field = None, 0
     if lock is not None:
-        lock_path = Path(lock.get("path", state.HOME / "lock")).expanduser()
-        fmt = lock.get("format", "{name} {pid} {start}")
-        fields = fmt.split()
-        if "{pid}" not in fields:
-            raise SystemExit("mort: [lock] format needs {pid} as its own word")
-        pid_field = fields.index("{pid}") + 1
+        lock_path, fmt, pid_field = lock_settings(lock)
         text = lock_path.read_text() if lock_path.exists() else ""
         if text.strip() and not stale_lock(text, pid_field - 1):
             raise SystemExit(f"mort: lock {lock_path} is held: {text.strip()}")
 
-    logs = state.HOME / "logs"
-    logs.mkdir(parents=True, exist_ok=True)
-    log, exit_file = logs / f"{name}.log", logs / f"{name}.exit"
+    log, exit_file = state.job_files(name)
+    log.parent.mkdir(parents=True, exist_ok=True)
     exit_file.unlink(missing_ok=True)
     if shutil.which("caffeinate"):
         cmd = ["caffeinate", "-dims", *cmd]

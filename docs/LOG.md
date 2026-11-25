@@ -4,6 +4,7 @@ Dated decisions and progress, newest first.
 
 ## 2026-11-25
 
+- Task 4: `mort` (summary), `mort log` (hands off to `tail`), `mort kill`, `mort forget`. The summary reads state and applies the rules but sends nothing; sending belongs to the watcher (task 7). `mort kill` asks first, then signals the job's process group. The wrapper traps TERM so it outlives the kill and still writes the exit code (143) and frees the lock. A killed job is marked as already reported, so the watcher will not alert about a stop the user asked for. `mort forget` keeps the log file.
 - `mort run` (task 3): starts `sh -c WRAPPER` in a new session (no hangup when the terminal closes), wrapped in `caffeinate -dims` when that exists (it passes the exit code through, checked). The wrapper writes `$?` to `~/.mort/logs/<name>.exit` and frees the lock only if the lock still names the wrapper's PID, so it never removes a lock another tool wrote. It waits up to 5 s for mort to write the lock first, so a job that ends at once still frees it. A wrapper killed with SIGKILL cannot free the lock; the stale-lock check covers that case.
 - Lock config: `[lock] path` and `format` in `~/.mort/config.toml`, with `{name}`, `{pid}`, `{start}`, `{cwd}`. The PID position is read from the format, so there is no separate field number to get wrong. A held lock refuses the run; a stale one is taken over.
 - Job names are limited to letters, digits, `.`, `_`, `-`, because they become file names. Run with `python3 -m mort` until packaging.
