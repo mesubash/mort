@@ -1,5 +1,7 @@
 import os
+import shutil
 import signal
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -102,3 +104,46 @@ def forget(name):
     db.execute("DELETE FROM jobs WHERE name = ?", (name,))
     db.commit()
     return pid_alive(row["pid"]), row["pid"]
+
+
+def notify(message, subtitle=""):
+    print(f"mort: {message}" + (f": {subtitle}" if subtitle else ""), flush=True)
+    if shutil.which("osascript"):
+        # Text goes in as arguments, never into the script, so a job name cannot inject AppleScript.
+        subprocess.run(["osascript", "-e", "on run argv", "-e",
+                        'display notification (item 1 of argv) with title "mort" subtitle (item 2 of argv)',
+                        "-e", "end run", message, subtitle], capture_output=True)
+
+
+def check(lock_cfg, notify=notify):
+    """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
+    db = state.connect()
+    rows = db.execute("SELECT * FROM jobs").fetchall()
+    for row in rows:
+        st, detail = status(row)
+        new = None if st == "running" else st
+        if new == row["last_event"]:
+            continue
+        if new is not None:
+            notify(f"{row['name']} {st}", detail)
+        db.execute("UPDATE jobs SET last_event = ? WHERE name = ?", (new, row["name"]))
+    db.commit()
+    if lock_cfg is not None:
+        check_lock(lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
+
+
+def check_lock(lock_cfg, mort_pids, notify):
+    path, _, pid_field = lock_settings(lock_cfg)
+    seen = state.HOME / "lock.warned"
+    text = path.read_text().strip() if path.exists() else ""
+    if not text or not stale_lock(text, pid_field - 1):
+        seen.unlink(missing_ok=True)
+        return
+    fields = text.split()
+    owner = mort_pids.get(int(fields[pid_field - 1])) if fields[pid_field - 1:pid_field] and fields[pid_field - 1].isdigit() else None
+    if owner:
+        path.unlink()
+        notify(f"freed the lock left by {owner}", text)
+    elif not seen.exists() or seen.read_text() != text:
+        notify("stale lock: its process is gone", text)
+        seen.write_text(text)

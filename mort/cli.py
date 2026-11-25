@@ -26,6 +26,7 @@ def main(argv=None):
     log.add_argument("-n", type=int, default=20, help="lines to show (default 20)")
     log.add_argument("-f", action="store_true", help="keep following the log")
     sub.add_parser("kill", help="stop a job after asking, and free its lock").add_argument("name")
+    sub.add_parser("check", help="apply the rules once and send new events (the daemon runs this)")
     sub.add_parser("forget", help="stop watching a job").add_argument("name")
     args = parser.parse_args(argv)
     config = state.load_config()
@@ -54,5 +55,7 @@ def main(argv=None):
     elif args.command == "forget":
         running, pid = jobs.forget(args.name)
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
+    elif args.command == "check":
+        jobs.check(config.get("lock"))
     else:
         print(jobs.summary(config.get("lock")))

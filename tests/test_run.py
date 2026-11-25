@@ -127,3 +127,51 @@ class Track(unittest.TestCase):
         from mort.run import track
         with self.assertRaises(SystemExit):
             track(999999)
+
+
+class Check(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def add(self, name, pid, lock=0, stall_after=None, log_age=0):
+        log, _ = state.job_files(name)
+        log.parent.mkdir(exist_ok=True)
+        log.write_text("x")
+        t = time.time() - log_age
+        os.utime(log, (t, t))
+        db = state.connect()
+        db.execute("INSERT INTO jobs (name, pid, log, started, stall_after, lock) VALUES (?, ?, ?, ?, ?, ?)",
+                   (name, pid, str(log), time.time() - 100, stall_after, lock))
+        db.commit()
+        return log
+
+    def run_check(self, lock=None):
+        from mort.jobs import check
+        sent = []
+        check(lock, notify=lambda m, s="": sent.append(m))
+        return sent
+
+    def test_event_sent_once(self):
+        self.add("j", 999999)
+        state.job_files("j")[1].write_text("1\n")
+        self.assertEqual(self.run_check(), ["j died"])
+        self.assertEqual(self.run_check(), [])
+
+    def test_stall_resets_when_output_resumes(self):
+        log = self.add("s", os.getpid(), stall_after=60, log_age=120)
+        self.assertEqual(self.run_check(), ["s stalled"])
+        log.write_text("more")
+        self.assertEqual(self.run_check(), [])
+        t = time.time() - 120
+        os.utime(log, (t, t))
+        self.assertEqual(self.run_check(), ["s stalled"])
+
+    def test_mort_lock_freed_foreign_lock_warned_once(self):
+        self.add("crashed", 999998, lock=1)
+        self.lock.write_text("crashed 999998 2026-11-25T10:00\n")
+        sent = self.run_check({"path": str(self.lock)})
+        self.assertIn("freed the lock left by crashed", sent)
+        self.assertFalse(self.lock.exists())
+        self.lock.write_text("other 999997 2026-11-25T10:00\n")
+        self.assertEqual(self.run_check({"path": str(self.lock)}), ["stale lock: its process is gone"])
+        self.assertEqual(self.run_check({"path": str(self.lock)}), [])
+        self.assertTrue(self.lock.exists())
