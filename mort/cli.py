@@ -2,7 +2,7 @@ import argparse
 import os
 
 from mort import jobs, state
-from mort.run import start
+from mort.run import start, track
 
 
 def main(argv=None):
@@ -14,6 +14,13 @@ def main(argv=None):
     run.add_argument("--stall", type=float, default=20, metavar="MIN",
                      help="report a stall after MIN minutes without log output (default 20, 0 turns it off)")
     run.add_argument("cmd", nargs=argparse.REMAINDER, help="-- command and arguments")
+    tr = sub.add_parser("track", help="watch something mort did not start").add_subparsers(dest="kind", required=True)
+    tp = tr.add_parser("pid", help="adopt a running process")
+    tp.add_argument("pid", type=int)
+    tp.add_argument("--name", help="job name (default: the process name)")
+    tp.add_argument("--log", help="the job's log file, for stall checks and --done")
+    tp.add_argument("--stall", type=float, default=20, metavar="MIN", help="minutes without log output (default 20, 0 off)")
+    tp.add_argument("--done", metavar="TEXT", help="text the log ends with on success; without it an ended job counts as died")
     log = sub.add_parser("log", help="show a job's log")
     log.add_argument("name")
     log.add_argument("-n", type=int, default=20, help="lines to show (default 20)")
@@ -30,9 +37,17 @@ def main(argv=None):
         lock = config.get("lock", {}) if args.lock else None
         name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock)
         print(f"started {name} (pid {pid}), log {log}")
+    elif args.command == "track":
+        if args.done and not args.log:
+            parser.error("--done needs --log")
+        name = track(args.pid, args.name, args.log, args.stall * 60 or None, args.done)
+        print(f"tracking {name} (pid {args.pid})")
     elif args.command == "log":
-        path, _ = state.job_files(jobs.find(args.name)["name"])
-        os.execvp("tail", ["tail", "-n", str(args.n), *(["-f"] if args.f else []), str(path)])
+        row = jobs.find(args.name)
+        if not row["log"]:
+            raise SystemExit(f"mort: {args.name} has no log; track it with --log")
+        path = row["log"]
+        os.execvp("tail", ["tail", "-n", str(args.n), *(["-f"] if args.f else []), path])
     elif args.command == "kill":
         if jobs.kill(args.name):
             print(f"sent stop to {args.name}; its lock is freed when it exits")

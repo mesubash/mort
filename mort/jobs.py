@@ -2,6 +2,7 @@ import os
 import signal
 import time
 from datetime import datetime
+from pathlib import Path
 
 from mort import state
 from mort.rules import job_event, pid_alive, stale_lock
@@ -20,17 +21,28 @@ def ago(seconds):
 def status(job, now=None):
     """Return (state, detail) for a jobs row: running, stalled, finished or died."""
     now = now or time.time()
-    log, exit_file = state.job_files(job["name"])
+    log = Path(job["log"]) if job["log"] else None
+    _, exit_file = state.job_files(job["name"])
     code = int(exit_file.read_text()) if exit_file.exists() else None
-    last_output = log.stat().st_mtime if log.exists() else job["started"]
-    event = job_event(pid_alive(job["pid"]), code, last_output, now, job["stall_after"])
+    # An exit file means the job is over even if its PID was reused by another process.
+    alive = code is None and pid_alive(job["pid"])
+    if not alive and code is None and job["done_marker"] and log and log.exists() and done_in(log, job["done_marker"]):
+        code = 0
+    last_output = log.stat().st_mtime if log and log.exists() else job["started"]
+    event = job_event(alive, code, last_output, now, job["stall_after"])
     if event is None:
         return "running", f"{ago(now - job['started'])}, output {ago(now - last_output)} ago"
     if event == "stalled":
         return "stalled", f"no output for {ago(now - last_output)}"
-    ended = (exit_file if exit_file.exists() else log if log.exists() else None)
+    ended = exit_file if exit_file.exists() else log if log and log.exists() else None
     at = datetime.fromtimestamp(ended.stat().st_mtime).strftime("%H:%M") if ended else "?"
     return event, f"{at} (exit {code})" if code is not None else f"{at} (no exit code)"
+
+
+def done_in(log, marker, tail=8192):
+    with open(log, "rb") as f:
+        f.seek(max(0, log.stat().st_size - tail))
+        return marker in f.read().decode(errors="replace")
 
 
 MARK = {"running": " *", "stalled": " !", "finished": "ok", "died": " x"}

@@ -36,15 +36,46 @@ def lock_settings(lock):
     return path, fmt, fields.index("{pid}") + 1
 
 
-def start(cmd, name=None, stall_after=1200, lock=None):
-    """Start cmd detached. lock is the [lock] config table, or None for no lock."""
-    name = name or Path(cmd[0]).name
+def check_free(db, name):
     if not NAME.fullmatch(name):
         raise SystemExit(f"mort: bad job name {name!r}; use letters, digits, '.', '_' or '-'")
-    db = state.connect()
     row = db.execute("SELECT pid FROM jobs WHERE name = ?", (name,)).fetchone()
     if row and pid_alive(row["pid"]):
         raise SystemExit(f"mort: job {name!r} is still running (pid {row['pid']})")
+
+
+def ps(pid, field):
+    out = subprocess.run(["ps", "-o", f"{field}=", "-p", str(pid)], capture_output=True, text=True,
+                         env=dict(os.environ, LC_ALL="C"))
+    return out.stdout.strip() or None
+
+
+def track(pid, name=None, log=None, stall_after=1200, done=None):
+    """Adopt a process mort did not start."""
+    if not pid_alive(pid):
+        raise SystemExit(f"mort: no running process {pid}")
+    name = name or re.sub(r"[^A-Za-z0-9._-]", "-", Path(ps(pid, "comm") or str(pid)).name)
+    db = state.connect()
+    check_free(db, name)
+    if log is not None:
+        log = Path(log).expanduser().resolve()
+        if not log.is_file():
+            raise SystemExit(f"mort: no log file at {log}")
+    lstart = ps(pid, "lstart")
+    started = datetime.strptime(lstart, "%a %b %d %H:%M:%S %Y").timestamp() if lstart else time.time()
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, done_marker)"
+               " VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?)",
+               (name, pid, ps(pid, "command"), str(log) if log else None, started,
+                stall_after if log else None, done))
+    db.commit()
+    return name
+
+
+def start(cmd, name=None, stall_after=1200, lock=None):
+    """Start cmd detached. lock is the [lock] config table, or None for no lock."""
+    name = name or Path(cmd[0]).name
+    db = state.connect()
+    check_free(db, name)
 
     lock_path, pid_field = None, 0
     if lock is not None:

@@ -12,7 +12,8 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS jobs (
     started REAL NOT NULL,
     stall_after REAL,
     lock INTEGER NOT NULL DEFAULT 0,
-    last_event TEXT
+    last_event TEXT,
+    done_marker TEXT
 )"""
 
 
@@ -23,6 +24,8 @@ def connect(path=None):
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.execute(SCHEMA)
+    if "done_marker" not in [r[1] for r in db.execute("PRAGMA table_info(jobs)")]:
+        db.execute("ALTER TABLE jobs ADD COLUMN done_marker TEXT")  # state.db made before this column existed
     return db
 
 

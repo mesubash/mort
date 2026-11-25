@@ -76,7 +76,7 @@ class Status(unittest.TestCase):
         os.utime(log, (t, t))
         if code is not None:
             exit_file.write_text(f"{code}\n")
-        return status({"name": name, "pid": pid, "started": time.time() - 100, "stall_after": 60})[0]
+        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None})[0]
 
     def test_states(self):
         self.assertEqual(self.job("a", 999999, code=0), "finished")
@@ -105,3 +105,25 @@ class Kill(unittest.TestCase):
         name, pid, _ = start(["sleep", "30"], "k2")
         self.assertFalse(kill("k2", confirm=lambda _: ""))
         os.killpg(pid, 9)
+
+
+class Track(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def test_adopted_job_finished_by_marker_or_died(self):
+        import subprocess
+        from mort.jobs import find, status
+        from mort.run import track
+        for name, text, want in (("ok", "epoch 3/3\nTRAINING DONE\n", "finished"), ("bad", "Traceback\n", "died")):
+            log = state.HOME / f"{name}.txt"
+            p = subprocess.Popen(["sleep", "30"])
+            track(p.pid, name, log=str(log.touch() or log), done="TRAINING DONE")
+            self.assertEqual(status(find(name))[0], "running")
+            log.write_text(text)
+            p.kill(); p.wait()
+            self.assertEqual(status(find(name))[0], want)
+
+    def test_dead_pid_refused(self):
+        from mort.run import track
+        with self.assertRaises(SystemExit):
+            track(999999)
