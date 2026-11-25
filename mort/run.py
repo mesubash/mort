@@ -17,7 +17,7 @@ NAME = re.compile(r"[A-Za-z0-9._-]+")
 # can still clean up; a handler, unlike an ignore, is not inherited by the job.
 WRAPPER = r'''
 trap ':' TERM
-lock_pid() { awk -v f="$MORT_PID_FIELD" '{print $f; exit}' "$MORT_LOCK" 2>/dev/null; }
+lock_pid() { awk -v f="$MORT_PID_FIELD" 'NF >= f {print $(NF - f + 1); exit}' "$MORT_LOCK" 2>/dev/null; }
 i=0
 while [ -n "$MORT_LOCK" ] && [ "$(lock_pid)" != "$$" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done
 "$@"
@@ -27,13 +27,17 @@ if [ -n "$MORT_LOCK" ] && [ "$(lock_pid)" = "$$" ]; then rm -f "$MORT_LOCK"; fi
 
 
 def lock_settings(lock):
-    """Return (path, format, 1-based PID field) from the [lock] config table."""
+    """Return (path, format, PID position counted from the end, 1 = last word) from the [lock] config table.
+
+    Counting from the end lets other tools put spaces in the words before the PID (a job name of
+    several words, a folder name), as long as the words after it are fixed.
+    """
     path = Path(lock.get("path", state.HOME / "lock")).expanduser()
     fmt = lock.get("format", "{name} {pid} {start}")
     fields = fmt.split()
     if "{pid}" not in fields:
         raise SystemExit("mort: [lock] format needs {pid} as its own word")
-    return path, fmt, fields.index("{pid}") + 1
+    return path, fmt, len(fields) - fields.index("{pid}")
 
 
 def check_free(db, name):
@@ -81,7 +85,7 @@ def start(cmd, name=None, stall_after=1200, lock=None):
     if lock is not None:
         lock_path, fmt, pid_field = lock_settings(lock)
         text = lock_path.read_text() if lock_path.exists() else ""
-        if text.strip() and not stale_lock(text, pid_field - 1):
+        if text.strip() and not stale_lock(text, -pid_field):
             raise SystemExit(f"mort: lock {lock_path} is held: {text.strip()}")
 
     log, exit_file = state.job_files(name)
@@ -96,7 +100,7 @@ def start(cmd, name=None, stall_after=1200, lock=None):
     started = time.time()
     if lock_path:
         line = fmt.format(
-            name=name, pid=pid, cwd=Path.cwd().name, start=datetime.fromtimestamp(started).strftime("%Y-%m-%dT%H:%M"))
+            name=name, pid=pid, cwd=Path.cwd().name, start=datetime.fromtimestamp(started).strftime("%Y-%m-%d_%H:%M"))
         lock_path.write_text(line + "\n")
     db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event)"
                " VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",

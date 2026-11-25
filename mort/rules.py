@@ -27,7 +27,7 @@ def job_event(alive, exit_code, last_output, now, stall_after):
 
 
 def stale_lock(text, pid_field, alive=pid_alive):
-    """True when the lock line names a PID that no longer runs. pid_field is the 0-based field index."""
+    """True when the lock line names a PID that no longer runs. pid_field indexes the words; negative counts from the end."""
     fields = text.split()
     if not fields:
         return False

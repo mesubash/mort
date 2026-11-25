@@ -38,6 +38,11 @@ class StaleLock(unittest.TestCase):
     def test_empty_lock(self):
         self.assertFalse(stale_lock("  \n", 2, DEAD))
 
+    def test_pid_counted_from_end_with_spaces_in_name(self):
+        line = "repo mean-teacher seeds 4242 2026-11-25_10:00"
+        self.assertTrue(stale_lock(line, -2, DEAD))
+        self.assertFalse(stale_lock(line, -2, ALIVE))
+
     def test_unreadable_pid(self):
         self.assertTrue(stale_lock("repo job", 2, ALIVE))
         self.assertTrue(stale_lock("repo job abc", 2, ALIVE))

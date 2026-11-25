@@ -38,7 +38,7 @@ class Run(unittest.TestCase):
         self.assertEqual((row["pid"], row["lock"]), (pid, 1))
 
     def test_held_lock_refuses(self):
-        self.lock.write_text(f"other job {os.getpid()} 2026-11-25T10:00\n")
+        self.lock.write_text(f"repo job of several words {os.getpid()} 2026-11-25_10:00\n")
         with self.assertRaises(SystemExit):
             start(["true"], "t", lock={"path": str(self.lock), "format": "repo {name} {pid} {start}"})
 

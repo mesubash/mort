@@ -65,7 +65,7 @@ def summary(lock_cfg):
         text = path.read_text().strip() if path.exists() else ""
         if not text:
             lock = "free"
-        elif stale_lock(text, pid_field - 1):
+        elif stale_lock(text, -pid_field):
             lock = f"stale: {text}"
         else:
             lock = f"held: {text}"
@@ -136,11 +136,12 @@ def check_lock(lock_cfg, mort_pids, notify):
     path, _, pid_field = lock_settings(lock_cfg)
     seen = state.HOME / "lock.warned"
     text = path.read_text().strip() if path.exists() else ""
-    if not text or not stale_lock(text, pid_field - 1):
+    if not text or not stale_lock(text, -pid_field):
         seen.unlink(missing_ok=True)
         return
     fields = text.split()
-    owner = mort_pids.get(int(fields[pid_field - 1])) if fields[pid_field - 1:pid_field] and fields[pid_field - 1].isdigit() else None
+    word = fields[-pid_field] if len(fields) >= pid_field else ""
+    owner = mort_pids.get(int(word)) if word.isdigit() else None
     if owner:
         path.unlink()
         notify(f"freed the lock left by {owner}", text)
