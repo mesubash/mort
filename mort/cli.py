@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from mort import jobs, state
+from mort import daemon, jobs, state
 from mort.run import start, track
 
 
@@ -27,6 +27,8 @@ def main(argv=None):
     log.add_argument("-f", action="store_true", help="keep following the log")
     sub.add_parser("kill", help="stop a job after asking, and free its lock").add_argument("name")
     sub.add_parser("check", help="apply the rules once and send new events (the daemon runs this)")
+    dm = sub.add_parser("daemon", help="run mort check every minute in the background (launchd)")
+    dm.add_argument("action", choices=["install", "uninstall", "status"])
     sub.add_parser("forget", help="stop watching a job").add_argument("name")
     args = parser.parse_args(argv)
     config = state.load_config()
@@ -57,5 +59,13 @@ def main(argv=None):
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
     elif args.command == "check":
         jobs.check(config.get("lock"))
+    elif args.command == "daemon":
+        if args.action == "install":
+            plist, log = daemon.install()
+            print(f"installed {plist}; mort check runs every 60 s, output in {log}")
+        elif args.action == "uninstall":
+            print("removed the launchd agent" if daemon.uninstall() else "no launchd agent was installed")
+        else:
+            print("daemon: running" if daemon.running() else "daemon: not installed (mort daemon install)")
     else:
         print(jobs.summary(config.get("lock")))
