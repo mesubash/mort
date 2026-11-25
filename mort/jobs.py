@@ -88,14 +88,34 @@ def kill(name, confirm=input):
     if confirm(f"stop {name} (pid {pid}, started {ago(time.time() - row['started'])} ago)? [y/N] ").strip().lower() != "y":
         return False
     # `mort run` jobs lead their own process group, so the job and its children all get the signal.
+    # An adopted job shares a group with whatever started it (maybe your shell), so there mort
+    # signals the process and its descendants instead: stopping `caffeinate` alone leaves the job running.
     if os.getpgid(pid) == pid:
         os.killpg(pid, signal.SIGTERM)
     else:
-        os.kill(pid, signal.SIGTERM)
+        for p in [pid, *descendants(pid)]:
+            try:
+                os.kill(p, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
     db = state.connect()
     db.execute("UPDATE jobs SET last_event = 'died' WHERE name = ?", (name,))  # the user knows; no alert
     db.commit()
     return True
+
+
+def descendants(pid):
+    out = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True).stdout
+    children = {}
+    for line in out.splitlines():
+        child, parent = map(int, line.split())
+        children.setdefault(parent, []).append(child)
+    found, todo = [], [pid]
+    while todo:
+        for child in children.get(todo.pop(), []):
+            found.append(child)
+            todo.append(child)
+    return found
 
 
 def forget(name):

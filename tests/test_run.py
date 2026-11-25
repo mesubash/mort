@@ -175,3 +175,18 @@ class Check(unittest.TestCase):
         self.assertEqual(self.run_check({"path": str(self.lock)}), ["stale lock: its process is gone"])
         self.assertEqual(self.run_check({"path": str(self.lock)}), [])
         self.assertTrue(self.lock.exists())
+
+    def test_kill_adopted_job_stops_its_children(self):
+        import subprocess
+        from mort.jobs import descendants, kill
+        from mort.run import track
+        parent = subprocess.Popen(["sh", "-c", "sleep 30; true"])  # like caffeinate: TERM to it alone spares the child
+        time.sleep(0.3)
+        children = descendants(parent.pid)
+        self.assertTrue(children)
+        track(parent.pid, "adopted")
+        self.assertTrue(kill("adopted", confirm=lambda _: "y"))
+        parent.wait(timeout=5)
+        time.sleep(0.2)
+        from mort.rules import pid_alive
+        self.assertFalse(any(pid_alive(c) for c in children))

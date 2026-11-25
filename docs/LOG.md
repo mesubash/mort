@@ -4,6 +4,7 @@ Dated decisions and progress, newest first.
 
 ## 2026-11-25
 
+- `mort kill` on an adopted job now signals the process and all its descendants (found with `ps -A -o pid,ppid`). Signalling only the process left children running: a `run_*.sh` script started under `nohup` dies on TERM while its Python child keeps going. Its process group is not used because an adopted job may share a group with the user's shell. Found while checking: `caffeinate -dims cmd` becomes `cmd` (same PID) and leaves a helper child, so the PID to track is the one running the command.
 - Phase 1 "done when", part 2 met on the real lock: a `mort run --lock` job killed with SIGKILL (whole group, no cleanup possible) was reported as died and its lock freed by the daemon 17 s later. Part 1 (a real training run notifies at its end) waits for the next real run.
 - Lock PID is now found counting from the end of the line. Real lock writers put several words in the job name (`kiln-adapt mean-teacher seeds <pid> <date>`), so a fixed position from the left was wrong. mort writes `{start}` as `%Y-%m-%d_%H:%M`, the same as `date +%F_%H:%M` in those scripts.
 - Task 8: `mort daemon install|uninstall|status`. The launchd agent `mort.check` (`~/Library/LaunchAgents/mort.check.plist`, written with `plistlib`) runs `python -m mort check` every 60 s and at load, logging to `~/.mort/daemon.log`. It is loaded with `launchctl bootstrap gui/<uid>`; reinstall boots out the old one first. Until mort is packaged the agent runs from this checkout through `PYTHONPATH`.
