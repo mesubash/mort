@@ -69,3 +69,5 @@ def main(argv=None):
             print("daemon: running" if daemon.running() else "daemon: not installed (mort daemon install)")
     else:
         print(jobs.summary(config.get("lock")))
+        if not daemon.running():
+            print("DAEMON\n   not running, so nothing is sent; start it with: mort daemon install")

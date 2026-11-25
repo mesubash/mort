@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="#what-it-catches">What it catches</a> ·
-  <a href="#how-it-will-look">How it will look</a> ·
+  <a href="#usage">Usage</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#roadmap">Roadmap</a> ·
   <a href="docs/PLAN.md">Full plan</a>
@@ -40,21 +40,49 @@ Training runs, data jobs, scrapers, remote scripts and hosted notebooks run in d
 
 Each event is sent once.
 
-## How it will look
+## Usage
 
-> Planned commands. Phase 1 is in progress; nothing below runs yet.
+Local jobs work now (macOS, Python 3.11+). There is no package yet, so run it from a clone:
 
 ```console
+$ git clone https://github.com/mesubash/mort && cd mort
+$ alias mort="PYTHONPATH=$PWD python3 -m mort"
+$ mort daemon install                       # check every 60 s in the background
 $ mort run --name train --lock -- python train.py
-$ mort track ssh my-server /jobs/prep/STATUS
-$ mort track kaggle user/my-kernel --pull runs/
+started train (pid 4242), log ~/.mort/logs/train.log
+$ mort track pid 5151 --log run.log --done "Training complete"
 $ mort
 JOBS
- x train         local   died 02:14 (exit 1)
- * prep          ssh     running 3h10m   STATUS: step 8/20
- ok my-kernel    kaggle  done 14:05      output pulled to runs/
-MACHINE
-   swap 1.1/8 GB   disk 38 GB free   lock: free
+ * train     running   3h10m, output 12s ago
+ x prep      died      02:14 (exit 1)
+ok eval      finished  14:05 (exit 0)
+LOCK
+   held: train 4242 2026-11-25_10:30
+```
+
+| Command | What it does |
+| --- | --- |
+| `mort run [--name N] [--lock] [--stall MIN] -- CMD` | start a job detached and awake, log it, take the lock if asked |
+| `mort track pid PID [--log FILE] [--done TEXT]` | watch a process mort did not start; `--done` is the log text that means success |
+| `mort` | jobs, lock, and a warning if the daemon is off |
+| `mort log NAME [-n 50] [-f]` | show or follow a job's log |
+| `mort kill NAME` | ask, then stop the job and its child processes; its lock is freed |
+| `mort forget NAME` | stop watching a job |
+| `mort daemon install \| uninstall \| status` | the launchd agent that runs `mort check` every minute |
+
+The lock is a one-line file that other tools can read too. Set it in `~/.mort/config.toml`:
+
+```toml
+[lock]
+path = "~/.mort/lock"
+format = "{name} {pid} {start}"    # also {cwd}; words before {pid} may contain spaces
+```
+
+Remote jobs, Kaggle and GitHub replies come next:
+
+```console
+$ mort track ssh my-server /jobs/prep/STATUS        # planned
+$ mort track kaggle user/my-kernel --pull runs/     # planned
 ```
 
 ## How it works
@@ -67,7 +95,7 @@ MACHINE
 
 ## Roadmap
 
-- [ ] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications
+- [ ] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications (built; in trial use)
 - [ ] **v0.2** remote: ssh STATUS files, Kaggle, GitHub replies, swap and disk
 - [ ] **v0.3** stall rules: a number that must keep changing, progress line, time left
 - [ ] **v1.0** public release: phone push, Homebrew, PyPI, Linux
