@@ -1,4 +1,5 @@
 import sqlite3
+import tomllib
 from pathlib import Path
 
 HOME = Path.home() / ".mort"
@@ -23,3 +24,11 @@ def connect(path=None):
     db.row_factory = sqlite3.Row
     db.execute(SCHEMA)
     return db
+
+
+def load_config():
+    path = HOME / "config.toml"
+    if not path.exists():
+        return {}
+    with open(path, "rb") as f:
+        return tomllib.load(f)
