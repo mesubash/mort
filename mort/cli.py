@@ -1,8 +1,9 @@
 import argparse
 import os
+import sys
 import time
 
-from mort import __version__, daemon, github, jobs, kaggle, notify, remote, state
+from mort import __version__, daemon, github, jobs, kaggle, macapp, notify, remote, state
 from mort.run import start, track
 
 
@@ -101,6 +102,9 @@ def main(argv=None):
         if args.action == "install":
             plist, log = daemon.install()
             print(f"installed {plist}; mort check runs every 60 s, output in {log}")
+            if sys.platform == "darwin":
+                print(f"built {macapp.build()} so notices show as mort")
+            notify.desktop("mort is watching", "you will hear from me when a job changes")
         elif args.action == "uninstall":
             print("removed the launchd agent" if daemon.uninstall() else "no launchd agent was installed")
         else:

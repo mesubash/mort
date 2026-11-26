@@ -138,7 +138,7 @@ If several tools share a machine, a one-line lock file can say which heavy job i
 
 ## Notifications
 
-Every event goes to the desktop (macOS Notification Center, or `notify-send` on Linux) and to the daemon log, `~/.mort/daemon.log`.
+Every event goes to the desktop and to the daemon log, `~/.mort/daemon.log`. On macOS, `mort daemon install` also builds a small `~/.mort/mort.app`, so notices appear as **mort** with its icon; the first one may ask you to allow notifications from mort. On Linux they go through `notify-send`.
 
 To get them on your phone as well, use [ntfy](https://ntfy.sh): install its app, subscribe to a topic, and add the topic to the config. Topics on the public ntfy.sh server can be read by anyone who knows the name ([the topic is essentially a password](https://docs.ntfy.sh/publish/)), so pick a long random one, or use your own server with a token.
 

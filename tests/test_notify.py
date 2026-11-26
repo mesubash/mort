@@ -51,7 +51,7 @@ class Phone(unittest.TestCase):
     def test_push_json_with_token(self):
         notify.phone({"server": self.url, "topic": "t", "token": "tk_x"}, "train died", "02:14 (exit 1) ✗")
         self.assertEqual(self.got, [("/", "Bearer tk_x", {"topic": "t", "title": "mort: train died",
-                                                          "message": "02:14 (exit 1) ✗", "tags": ["ghost"]})])
+                                                          "message": "02:14 (exit 1) ✗", "icon": notify.ICON_URL})])
 
     def test_quiet_hours_hold_then_one_digest(self):
         clock = [datetime(2026, 11, 26, 2, 0)]

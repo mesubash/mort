@@ -1,25 +1,31 @@
 import json
 import shutil
 import subprocess
+import sys
 import urllib.request
 from datetime import datetime
 
-from mort import state
+from mort import macapp, state
+
+ICON_URL = "https://raw.githubusercontent.com/mesubash/mort/main/mort/icon.png"
 
 
 def desktop(message, subtitle=""):
+    if sys.platform == "darwin" and macapp.post(message, subtitle):
+        return
     if shutil.which("osascript"):
         # Text goes in as arguments, never into the script, so a job name cannot inject AppleScript.
         subprocess.run(["osascript", "-e", "on run argv", "-e",
                         'display notification (item 2 of argv) with title "mort" subtitle (item 1 of argv)',
                         "-e", "end run", message, subtitle], capture_output=True)
     elif shutil.which("notify-send"):
-        subprocess.run(["notify-send", "--app-name=mort", f"mort: {message}", subtitle], capture_output=True)
+        subprocess.run(["notify-send", "--app-name=mort", f"--icon={macapp.ICON}", f"mort: {message}", subtitle],
+                       capture_output=True)
 
 
 def phone(ntfy, message, subtitle=""):
     """Push through ntfy, as JSON to the server's root URL (docs.ntfy.sh/publish). Failure is printed, never raised."""
-    body = {"topic": ntfy["topic"], "title": f"mort: {message}", "message": subtitle or message, "tags": ["ghost"]}
+    body = {"topic": ntfy["topic"], "title": f"mort: {message}", "message": subtitle or message, "icon": ICON_URL}
     req = urllib.request.Request(ntfy.get("server", "https://ntfy.sh").rstrip("/") + "/", method="POST",
                                  data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
     if ntfy.get("token"):

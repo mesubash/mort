@@ -27,5 +27,8 @@ mort = "mort.cli:main"
 [tool.setuptools]
 packages = ["mort"]
 
+[tool.setuptools.package-data]
+mort = ["icon.png"]
+
 [tool.setuptools.dynamic]
 version = { attr = "mort.__version__" }
