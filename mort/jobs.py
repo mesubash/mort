@@ -32,13 +32,25 @@ def status(job, now=None):
         code = 0
     last_output = log.stat().st_mtime if log and log.exists() else job["started"]
     event = job_event(alive, code, last_output, now, job["stall_after"])
+    wrote = log is not None and log.exists() and log.stat().st_size > 0
     if event is None:
-        return "running", f"{ago(now - job['started'])}, output {ago(now - last_output)} ago"
+        out = f"output {ago(now - last_output)} ago" if wrote else "no output yet"
+        return "running", f"{ago(now - job['started'])}, {out}"
     if event == "stalled":
         return "stalled", f"no output for {ago(now - last_output)}"
     ended = exit_file if exit_file.exists() else log if log and log.exists() else None
     at = datetime.fromtimestamp(ended.stat().st_mtime).strftime("%H:%M") if ended else "?"
-    return event, f"{at} (exit {code})" if code is not None else f"{at} (no exit code)"
+    if code is None:
+        return event, f"{at} (no exit code)"
+    return event, f"{at} (exit {code}{signal_name(code)})"
+
+
+def signal_name(code):
+    """The shell reports a job ended by signal N as exit 128+N."""
+    try:
+        return f", {signal.Signals(code - 128).name}" if code > 128 else ""
+    except ValueError:
+        return ""
 
 
 def done_in(log, marker, tail=8192):
