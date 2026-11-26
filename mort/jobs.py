@@ -110,8 +110,11 @@ def observe(db, job, now):
     count = COUNT.search(line)
     if count and not start:
         start = f"{count.group(1)} {now}"
+    shown = " ".join(line.split())
+    if job["watch_log"]:  # several logs: say which one the progress comes from
+        shown = f"{log.stem}: {shown}"
     db.execute("UPDATE jobs SET watch_value = ?, watch_changed = ?, progress = ?, progress_start = ? WHERE name = ?",
-               (value, changed, " ".join(line.split())[:200], start, job["name"]))
+               (value, changed, shown[:200], start, job["name"]))
 
 
 def done_in(log, marker, tail=8192):

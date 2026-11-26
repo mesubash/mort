@@ -384,4 +384,4 @@ class WatchLog(unittest.TestCase):
         db.execute("UPDATE jobs SET watch = ?, watch_log = ? WHERE name = 'multi'", (r"(\d+/\d+) +[0-9.]+it/s", str(d / "part_*.log")))
         db.commit()
         check({}, notify=lambda m, s="": None, reading=(0.0, 100.0, 16.0))
-        self.assertIn("5/9", status(find("multi"))[1])
+        self.assertIn("part_b: 5/9", status(find("multi"))[1])
