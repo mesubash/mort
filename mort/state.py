@@ -6,15 +6,25 @@ HOME = Path.home() / ".mort"
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS jobs (
     name TEXT PRIMARY KEY,
-    pid INTEGER NOT NULL,
+    pid INTEGER,
     cmd TEXT,
     log TEXT,
     started REAL NOT NULL,
     stall_after REAL,
     lock INTEGER NOT NULL DEFAULT 0,
-    last_event TEXT,
-    done_marker TEXT
+    last_event TEXT
 )"""
+
+ADDED = {
+    "done_marker": "TEXT",
+    "kind": "TEXT NOT NULL DEFAULT 'local'",  # local or ssh
+    "failed_marker": "TEXT",
+    "target": "TEXT",           # ssh: host:path
+    "remote_text": "TEXT",      # ssh: last lines read
+    "remote_error": "TEXT",
+    "remote_at": "REAL",        # ssh: time of the last good read
+    "tried_at": "REAL",
+}
 
 
 ALERTS = "CREATE TABLE IF NOT EXISTS alerts (key TEXT PRIMARY KEY, value TEXT)"
@@ -28,8 +38,10 @@ def connect(path=None):
     db.row_factory = sqlite3.Row
     db.execute(SCHEMA)
     db.execute(ALERTS)
-    if "done_marker" not in [r[1] for r in db.execute("PRAGMA table_info(jobs)")]:
-        db.execute("ALTER TABLE jobs ADD COLUMN done_marker TEXT")  # state.db made before this column existed
+    have = {r[1] for r in db.execute("PRAGMA table_info(jobs)")}
+    for column, kind in ADDED.items():  # columns newer than an existing state.db
+        if column not in have:
+            db.execute(f"ALTER TABLE jobs ADD COLUMN {column} {kind}")
     return db
 
 

@@ -64,6 +64,7 @@ LOCK
 | --- | --- |
 | `mort run [--name N] [--lock] [--stall MIN] -- CMD` | start a job detached and awake, log it, take the lock if asked |
 | `mort track pid PID [--log FILE] [--done TEXT]` | watch a process mort did not start; `--done` is the log text that means success |
+| `mort track ssh HOST PATH [--done RE] [--failed RE]` | watch a STATUS file on a remote host, read-only |
 | `mort` | jobs, lock, and a warning if the daemon is off |
 | `mort log NAME [-n 50] [-f]` | show or follow a job's log |
 | `mort kill NAME` | ask, then stop the job and its child processes; its lock is freed |
@@ -78,10 +79,16 @@ path = "~/.mort/lock"
 format = "{name} {pid} {start}"    # also {cwd}; words before {pid} may contain spaces
 ```
 
-Remote jobs, Kaggle and GitHub replies come next:
+Remote jobs are read over ssh, one read-only `tail` per minute, with your own ssh config and keys. The last line of the file decides: `DONE` is finished, `FAIL…` is died, and both can be changed:
 
 ```console
-$ mort track ssh my-server /jobs/prep/STATUS        # planned
+$ mort track ssh my-server /jobs/prep/STATUS
+$ mort track ssh my-server /jobs/seeds/STATUS --done '^s2 DONE'
+```
+
+Kaggle and GitHub replies come next:
+
+```console
 $ mort track kaggle user/my-kernel --pull runs/     # planned
 ```
 

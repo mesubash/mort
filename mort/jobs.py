@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from mort import machine, state
+from mort import machine, remote, state
 from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
 from mort.run import lock_settings
 
@@ -23,6 +23,8 @@ def ago(seconds):
 def status(job, now=None):
     """Return (state, detail) for a jobs row: running, stalled, finished or died."""
     now = now or time.time()
+    if job["kind"] == "ssh":
+        return remote.status(job, now)
     log = Path(job["log"]) if job["log"] else None
     _, exit_file = state.job_files(job["name"])
     code = int(exit_file.read_text()) if exit_file.exists() else None
@@ -59,7 +61,7 @@ def done_in(log, marker, tail=8192):
         return marker in f.read().decode(errors="replace")
 
 
-MARK = {"running": " *", "stalled": " !", "finished": "ok", "died": " x"}
+MARK = {"running": " *", "stalled": " !", "finished": "ok", "died": " x", "unknown": " ?"}
 
 
 def summary(config, reading=None):
@@ -100,6 +102,8 @@ def find(name):
 def kill(name, confirm=input):
     row = find(name)
     pid = row["pid"]
+    if row["kind"] != "local":
+        raise SystemExit(f"mort: {name} runs on {row['target'].split(':')[0]}; mort only reads remote jobs")
     if not pid_alive(pid):
         raise SystemExit(f"mort: {name} is not running")
     if confirm(f"stop {name} (pid {pid}, started {ago(time.time() - row['started'])} ago)? [y/N] ").strip().lower() != "y":
@@ -140,7 +144,7 @@ def forget(name):
     db = state.connect()
     db.execute("DELETE FROM jobs WHERE name = ?", (name,))
     db.commit()
-    return pid_alive(row["pid"]), row["pid"]
+    return row["kind"] == "local" and pid_alive(row["pid"]), row["pid"]
 
 
 def notify(message, subtitle=""):
@@ -156,10 +160,13 @@ def check(config, notify=notify, reading=None):
     """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
     lock_cfg = config.get("lock")
     db = state.connect()
+    for row in db.execute("SELECT * FROM jobs WHERE kind = 'ssh'").fetchall():
+        if row["last_event"] not in ("finished", "died"):
+            remote.poll(db, row)
     rows = db.execute("SELECT * FROM jobs").fetchall()
     for row in rows:
         st, detail = status(row)
-        new = None if st == "running" else st
+        new = None if st in ("running", "unknown") else st
         if new == row["last_event"]:
             continue
         if new is not None:

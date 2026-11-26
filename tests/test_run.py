@@ -76,7 +76,7 @@ class Status(unittest.TestCase):
         os.utime(log, (t, t))
         if code is not None:
             exit_file.write_text(f"{code}\n")
-        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None})[0]
+        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None, "kind": "local"})[0]
 
     def test_states(self):
         self.assertEqual(self.job("a", 999999, code=0), "finished")
@@ -205,3 +205,55 @@ class Machine(unittest.TestCase):
         self.assertEqual(len(sent), 2)
         run(1.0, 20.0); run(9.0, 20.0)  # cleared, then swap again
         self.assertEqual(sent[-1], "swap high")
+
+
+class Ssh(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def setup_remote(self, replies):
+        from mort import remote
+        self.calls = []
+        self.old_read = remote.read
+        def fake(host, path):
+            self.calls.append((host, path))
+            return replies.pop(0)
+        remote.read = fake
+        self.addCleanup(setattr, remote, "read", self.old_read)
+
+    def run_check(self, now=None):
+        from mort.jobs import check
+        sent = []
+        check({}, notify=lambda m, s="": sent.append(f"{m}: {s}"), reading=(0.0, 100.0, 16.0))
+        return sent
+
+    def test_last_line_decides_and_steps_do_not_finish(self):
+        from mort.remote import track
+        track("my-server", "/jobs/prep/STATUS", done=r"^s2 DONE", failed=r"FAILED")
+        self.setup_remote([("", None), ("s0 DONE\n", None), ("s0 DONE\ns1 DONE\ns2 DONE\n", None)])
+        self.assertEqual(self.run_check(), [])            # no STATUS yet
+        self.assertEqual(self.run_check(), [])            # one step done is not the job done
+        self.assertEqual(self.run_check(), ["prep finished: STATUS: s2 DONE"])
+        self.run_check()
+        self.assertEqual(len(self.calls), 3)              # finished jobs are not read again
+
+    def test_failed_and_default_markers(self):
+        from mort.remote import track
+        track("my-server", "/jobs/a/STATUS")
+        self.setup_remote([("FAILED-HF\n", None)])
+        self.assertEqual(self.run_check(), ["a died: STATUS: FAILED-HF"])
+
+    def test_unreachable_is_unknown_and_backs_off(self):
+        from mort.jobs import find, status
+        from mort.remote import track
+        track("my-server", "/jobs/b/STATUS")
+        self.setup_remote([(None, "Connection timed out")])
+        self.assertEqual(self.run_check(), [])
+        self.run_check()
+        self.assertEqual(len(self.calls), 1)              # backed off, no second ssh
+        self.assertEqual(status(find("b"))[0], "unknown")
+
+    def test_bad_host_refused(self):
+        from mort.remote import track
+        for host in ("-oProxyCommand=x", "a b", ""):
+            with self.assertRaises(SystemExit):
+                track(host, "/x/STATUS")

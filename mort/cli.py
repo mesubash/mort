@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from mort import daemon, jobs, state
+from mort import daemon, jobs, remote, state
 from mort.run import start, track
 
 
@@ -21,6 +21,12 @@ def main(argv=None):
     tp.add_argument("--log", help="the job's log file, for stall checks and --done")
     tp.add_argument("--stall", type=float, default=20, metavar="MIN", help="minutes without log output (default 20, 0 off)")
     tp.add_argument("--done", metavar="TEXT", help="text the log ends with on success; without it an ended job counts as died")
+    ts = tr.add_parser("ssh", help="watch a STATUS file on a remote host (read-only, one ssh per check)")
+    ts.add_argument("host")
+    ts.add_argument("path")
+    ts.add_argument("--name", help="job name (default: the folder holding the file)")
+    ts.add_argument("--done", default=r"^DONE\b", metavar="REGEX", help="last line meaning success (default ^DONE)")
+    ts.add_argument("--failed", default=r"^FAIL", metavar="REGEX", help="last line meaning failure (default ^FAIL)")
     log = sub.add_parser("log", help="show a job's log")
     log.add_argument("name")
     log.add_argument("-n", type=int, default=20, help="lines to show (default 20)")
@@ -40,6 +46,9 @@ def main(argv=None):
         lock = config.get("lock", {}) if args.lock else None
         name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock)
         print(f"started {name} (pid {pid}), log {log}")
+    elif args.command == "track" and args.kind == "ssh":
+        name = remote.track(args.host, args.path, args.name, args.done, args.failed)
+        print(f"tracking {name} ({args.host}:{args.path}); the daemon reads it every minute")
     elif args.command == "track":
         if args.done and not args.log:
             parser.error("--done needs --log")
@@ -47,6 +56,9 @@ def main(argv=None):
         print(f"tracking {name} (pid {args.pid})")
     elif args.command == "log":
         row = jobs.find(args.name)
+        if row["kind"] == "ssh":
+            print(row["remote_text"] or "(nothing read yet)", end="")
+            return
         if not row["log"]:
             raise SystemExit(f"mort: {args.name} has no log; track it with --log")
         path = row["log"]
