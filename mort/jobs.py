@@ -131,7 +131,7 @@ def notify(message, subtitle=""):
     if shutil.which("osascript"):
         # Text goes in as arguments, never into the script, so a job name cannot inject AppleScript.
         subprocess.run(["osascript", "-e", "on run argv", "-e",
-                        'display notification (item 1 of argv) with title "mort" subtitle (item 2 of argv)',
+                        'display notification (item 2 of argv) with title "mort" subtitle (item 1 of argv)',
                         "-e", "end run", message, subtitle], capture_output=True)
 
 
