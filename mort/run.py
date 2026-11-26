@@ -89,7 +89,7 @@ def track(pid, name=None, log=None, stall_after=1200, done=None, watch=None):
     return name
 
 
-def start(cmd, name=None, stall_after=1200, lock=None, watch=None):
+def start(cmd, name=None, stall_after=1200, lock=None, watch=None, watch_log=None):
     """Start cmd detached. lock is the [lock] config table, or None for no lock."""
     name = name or Path(cmd[0]).name
     check_watch(watch)
@@ -117,8 +117,9 @@ def start(cmd, name=None, stall_after=1200, lock=None, watch=None):
         line = fmt.format(
             name=name, pid=pid, cwd=Path.cwd().name, start=datetime.fromtimestamp(started).strftime("%Y-%m-%d_%H:%M"))
         lock_path.write_text(line + "\n")
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, watch)"
-               " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)",
-               (name, pid, " ".join(cmd), str(log), started, stall_after, int(lock_path is not None), watch))
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, watch, watch_log)"
+               " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)",
+               (name, pid, " ".join(cmd), str(log), started, stall_after, int(lock_path is not None), watch,
+                str(Path(watch_log).expanduser().absolute()) if watch_log else None))
     db.commit()
     return name, pid, log

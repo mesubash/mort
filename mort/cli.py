@@ -14,6 +14,7 @@ def main(argv=None):
     run.add_argument("--lock", action="store_true", help="take the lock from config while the job runs")
     run.add_argument("--stall", type=float, default=20, metavar="MIN",
                      help="report a stall after MIN minutes without log output, or without change in --watch (default 20, 0 off)")
+    run.add_argument("--log", metavar="GLOB", help="the job writes its own log(s) here; mort reads the newest match for stalls and progress")
     run.add_argument("--watch", metavar="REGEX", help="a number that must keep changing, e.g. 'loss=([0-9.]+)'; stall then means it stopped")
     run.add_argument("cmd", nargs=argparse.REMAINDER, help="-- command and arguments")
     tr = sub.add_parser("track", help="watch something mort did not start").add_subparsers(dest="kind", required=True)
@@ -52,7 +53,7 @@ def main(argv=None):
         if not cmd:
             parser.error("run needs a command after --")
         lock = config.get("lock", {}) if args.lock else None
-        name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock, args.watch)
+        name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock, args.watch, args.log)
         print(f"started {name} (pid {pid}), log {log}")
     elif args.command == "track" and args.kind == "kaggle":
         name = kaggle.track(args.kernel, args.name, args.pull)
@@ -75,9 +76,10 @@ def main(argv=None):
         if row["kind"] != "local":
             print(row["remote_text"] or "(nothing read yet)")
             return
-        if not row["log"]:
+        path = jobs.watched_log(row)
+        if path is None:
             raise SystemExit(f"mort: {args.name} has no log; track it with --log")
-        path = row["log"]
+        path = str(path)
         os.execvp("tail", ["tail", "-n", str(args.n), *(["-f"] if args.f else []), path])
     elif args.command == "kill":
         if jobs.kill(args.name):

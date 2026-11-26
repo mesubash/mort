@@ -1,3 +1,4 @@
+import glob
 import os
 import re
 import shutil
@@ -21,6 +22,14 @@ def ago(seconds):
     return f"{s // 3600}h{s % 3600 // 60:02d}m"
 
 
+def watched_log(job):
+    """The log to read: the newest file matching watch_log when set, else the job's log."""
+    if job["watch_log"]:
+        found = [p for p in glob.glob(os.path.expanduser(job["watch_log"])) if os.path.isfile(p)]
+        return Path(max(found, key=os.path.getmtime)) if found else None
+    return Path(job["log"]) if job["log"] else None
+
+
 def status(job, now=None):
     """Return (state, detail) for a jobs row: running, stalled, finished or died."""
     now = now or time.time()
@@ -28,7 +37,7 @@ def status(job, now=None):
         return remote.status(job, now)
     if job["kind"] == "kaggle":
         return kaggle.status(job, now)
-    log = Path(job["log"]) if job["log"] else None
+    log = watched_log(job)
     _, exit_file = state.job_files(job["name"])
     code = int(exit_file.read_text()) if exit_file.exists() else None
     # An exit file means the job is over even if its PID was reused by another process.
@@ -81,9 +90,9 @@ def progress(job, now):
 
 def observe(db, job, now):
     """Read the log's last lines for the watch regex; record the value, when it last changed, and progress."""
-    if not job["watch"] or not job["log"] or not Path(job["log"]).exists():
+    log = watched_log(job)
+    if not job["watch"] or log is None or not log.exists():
         return
-    log = Path(job["log"])
     with open(log, "rb") as f:
         f.seek(max(0, log.stat().st_size - 16384))
         text = ANSI.sub("", f.read().decode(errors="replace"))  # colour and cursor codes from progress bars

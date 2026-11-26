@@ -76,7 +76,7 @@ class Status(unittest.TestCase):
         os.utime(log, (t, t))
         if code is not None:
             exit_file.write_text(f"{code}\n")
-        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None, "kind": "local", "watch": None})[0]
+        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None, "kind": "local", "watch": None, "watch_log": None})[0]
 
     def test_states(self):
         self.assertEqual(self.job("a", 999999, code=0), "finished")
@@ -366,3 +366,22 @@ class Watch(unittest.TestCase):
         from mort.run import check_watch
         with self.assertRaises(SystemExit):
             check_watch("loss=[0-9.]+")
+
+
+class WatchLog(unittest.TestCase):
+    setUp, tearDown = Check.setUp, Check.tearDown
+    add = Check.add
+
+    def test_newest_matching_log_is_read(self):
+        from mort.jobs import check, find, status
+        self.add("multi", os.getpid(), stall_after=60)
+        d = Path(self.tmp.name)
+        (d / "part_a.log").write_text("1/9 2.0it/s\n")
+        t = time.time() - 300
+        os.utime(d / "part_a.log", (t, t))
+        (d / "part_b.log").write_text("5/9 2.0it/s\n")
+        db = state.connect()
+        db.execute("UPDATE jobs SET watch = ?, watch_log = ? WHERE name = 'multi'", (r"(\d+/\d+) +[0-9.]+it/s", str(d / "part_*.log")))
+        db.commit()
+        check({}, notify=lambda m, s="": None, reading=(0.0, 100.0, 16.0))
+        self.assertIn("5/9", status(find("multi"))[1])

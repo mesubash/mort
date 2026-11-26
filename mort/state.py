@@ -30,6 +30,7 @@ ADDED = {
     "watch_changed": "REAL",
     "progress": "TEXT",         # last log line the watch regex matched
     "progress_start": "TEXT",   # "n time" when an N/M count was first seen
+    "watch_log": "TEXT",        # glob of the log(s) the job writes itself; the newest is read
 }
 
 
