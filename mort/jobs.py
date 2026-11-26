@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from mort import machine, remote, state
+from mort import github, machine, remote, state
 from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
 from mort.run import lock_settings
 
@@ -89,6 +89,7 @@ def summary(config, reading=None):
     swap_max, disk_min = machine.limits(config, ram)
     swap_txt = "swap ?" if swap is None else f"swap {swap:.1f} GB used{' !' if swap > swap_max else ''}"
     lines += ["MACHINE", f"   {swap_txt}   disk {disk:.1f} GB free{' !' if disk < disk_min else ''}"]
+    lines += github.summary(db, time.time())
     return "\n".join(lines)
 
 
@@ -156,7 +157,7 @@ def notify(message, subtitle=""):
                         "-e", "end run", message, subtitle], capture_output=True)
 
 
-def check(config, notify=notify, reading=None):
+def check(config, notify=notify, reading=None, gh_api=None):
     """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
     lock_cfg = config.get("lock")
     db = state.connect()
@@ -175,6 +176,7 @@ def check(config, notify=notify, reading=None):
     if lock_cfg is not None:
         check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
     check_machine(db, config, notify, reading or machine.readings())
+    github.check(db, notify, time.time(), **({"api": gh_api} if gh_api else {}))
     db.commit()
 
 

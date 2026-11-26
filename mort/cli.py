@@ -1,7 +1,8 @@
 import argparse
 import os
+import time
 
-from mort import daemon, jobs, remote, state
+from mort import daemon, github, jobs, remote, state
 from mort.run import start, track
 
 
@@ -27,6 +28,7 @@ def main(argv=None):
     ts.add_argument("--name", help="job name (default: the folder holding the file)")
     ts.add_argument("--done", default=r"^DONE\b", metavar="REGEX", help="last line meaning success (default ^DONE)")
     ts.add_argument("--failed", default=r"^FAIL", metavar="REGEX", help="last line meaning failure (default ^FAIL)")
+    tr.add_parser("github", help="notify on replies to your open issues and pull requests (uses gh)")
     log = sub.add_parser("log", help="show a job's log")
     log.add_argument("name")
     log.add_argument("-n", type=int, default=20, help="lines to show (default 20)")
@@ -46,6 +48,11 @@ def main(argv=None):
         lock = config.get("lock", {}) if args.lock else None
         name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock)
         print(f"started {name} (pid {pid}), log {log}")
+    elif args.command == "track" and args.kind == "github":
+        db = state.connect()
+        github.enable(db, time.time())
+        db.commit()
+        print("watching replies on your open issues and pull requests, checked every 5 minutes")
     elif args.command == "track" and args.kind == "ssh":
         name = remote.track(args.host, args.path, args.name, args.done, args.failed)
         print(f"tracking {name} ({args.host}:{args.path}); the daemon reads it every minute")
@@ -66,6 +73,11 @@ def main(argv=None):
     elif args.command == "kill":
         if jobs.kill(args.name):
             print(f"sent stop to {args.name}; its lock is freed when it exits")
+    elif args.command == "forget" and args.name == "github":
+        db = state.connect()
+        db.execute("DELETE FROM alerts WHERE key = 'github'")
+        db.commit()
+        print("stopped watching GitHub replies")
     elif args.command == "forget":
         running, pid = jobs.forget(args.name)
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))

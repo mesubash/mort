@@ -257,3 +257,39 @@ class Ssh(unittest.TestCase):
         for host in ("-oProxyCommand=x", "a b", ""):
             with self.assertRaises(SystemExit):
                 track(host, "/x/STATUS")
+
+
+class GitHub(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def test_replies_by_others_once(self):
+        from mort import github
+        from mort.jobs import check
+        db = state.connect()
+        github.enable(db, 0)  # since 1970
+        db.commit()
+        pr = {"repository_url": "https://api.github.com/repos/o/r", "number": 7, "pull_request": {}, "html_url": "u"}
+        posts = {
+            "repos/o/r/issues/7/comments": [
+                {"user": {"login": "me"}, "body": "mine", "created_at": "2026-11-26T01:00:00Z"},
+                {"user": {"login": "ci", "type": "Bot"}, "body": "coverage", "created_at": "2026-11-26T01:00:00Z"},
+                {"user": {"login": "maint"}, "body": "Looks good,\n one nit", "created_at": "2026-11-26T02:00:00Z"}],
+            "repos/o/r/pulls/7/comments": [],
+            "repos/o/r/pulls/7/reviews": [{"user": {"login": "maint"}, "state": "APPROVED", "body": "",
+                                           "submitted_at": "2026-11-26T03:00:00Z"}],
+        }
+        def api(path, **params):
+            if path == "user":
+                return {"login": "me"}
+            if path == "search/issues":
+                return {"items": [pr]}
+            since = params.get("since", "")
+            return [p for p in posts[path] if (p.get("created_at") or p.get("submitted_at")) > since]
+        sent = []
+        run = lambda: check({}, notify=lambda m, s="": sent.append(f"{m}: {s}"), reading=(0.0, 100.0, 16.0), gh_api=api)
+        run()
+        self.assertEqual(sent, ["reply on o/r#7 from maint: Looks good, one nit", "reply on o/r#7 from maint: approved"])
+        db.execute("UPDATE alerts SET value = json_set(value, '$.checked', 0) WHERE key = 'github'")
+        db.commit()
+        run()
+        self.assertEqual(len(sent), 2)  # the same replies are not sent again

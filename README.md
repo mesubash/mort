@@ -65,6 +65,7 @@ LOCK
 | `mort run [--name N] [--lock] [--stall MIN] -- CMD` | start a job detached and awake, log it, take the lock if asked |
 | `mort track pid PID [--log FILE] [--done TEXT]` | watch a process mort did not start; `--done` is the log text that means success |
 | `mort track ssh HOST PATH [--done RE] [--failed RE]` | watch a STATUS file on a remote host, read-only |
+| `mort track github` | notify when someone else comments on or reviews your open issues and pull requests |
 | `mort` | jobs, lock, and a warning if the daemon is off |
 | `mort log NAME [-n 50] [-f]` | show or follow a job's log |
 | `mort kill NAME` | ask, then stop the job and its child processes; its lock is freed |
@@ -86,7 +87,13 @@ $ mort track ssh my-server /jobs/prep/STATUS
 $ mort track ssh my-server /jobs/seeds/STATUS --done '^s2 DONE'
 ```
 
-Kaggle and GitHub replies come next:
+Replies to your open issues and pull requests, through your `gh` login, checked every 5 minutes:
+
+```console
+$ mort track github
+```
+
+Kaggle comes next:
 
 ```console
 $ mort track kaggle user/my-kernel --pull runs/     # planned
