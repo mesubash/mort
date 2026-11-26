@@ -18,6 +18,8 @@ def kaggle(*args, timeout=120):
         out = subprocess.run(["kaggle", *args], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return None, "kaggle timed out"
+    except OSError as e:
+        return None, f"cannot run kaggle: {e.strerror}"
     if out.returncode != 0:
         return None, (out.stderr.strip() or out.stdout.strip() or "kaggle failed").splitlines()[-1][:200]
     return out.stdout, None

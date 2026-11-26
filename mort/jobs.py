@@ -178,11 +178,18 @@ def check(config, notify=notify, reading=None, gh_api=None):
         if new is not None:
             notify(f"{row['name']} {st}", detail)
         db.execute("UPDATE jobs SET last_event = ? WHERE name = ?", (new, row["name"]))
+    db.commit()  # saved before the other watchers, so a failure below cannot make these repeat
+    watchers = [lambda: check_machine(db, config, notify, reading or machine.readings()),
+                lambda: github.check(db, notify, now, **({"api": gh_api} if gh_api else {}))]
     if lock_cfg is not None:
-        check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
-    check_machine(db, config, notify, reading or machine.readings())
-    github.check(db, notify, now, **({"api": gh_api} if gh_api else {}))
-    db.commit()
+        watchers.insert(0, lambda: check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify))
+    for watch in watchers:
+        try:
+            watch()
+            db.commit()
+        except Exception as e:  # one broken watcher must not stop the others; the daemon log keeps the reason
+            db.rollback()
+            print(f"mort: check failed: {type(e).__name__}: {e}", flush=True)
 
 
 def check_machine(db, config, notify, reading):

@@ -23,7 +23,9 @@ def install(interval=60):
             "Label": LABEL,
             "ProgramArguments": [sys.executable, "-m", "mort", "check"],
             # ponytail: runs from this checkout; switch to the installed `mort` command once packaged
-            "EnvironmentVariables": {"PYTHONPATH": str(Path(__file__).resolve().parent.parent)},
+            # launchd's own PATH lacks Homebrew and pipx folders, where gh and kaggle usually live.
+            "EnvironmentVariables": {"PYTHONPATH": str(Path(__file__).resolve().parent.parent),
+                                     "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")},
             "StartInterval": interval,
             "RunAtLoad": True,
             "StandardOutPath": log,

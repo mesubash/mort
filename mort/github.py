@@ -49,7 +49,7 @@ def check(db, notify, now, api=gh):
         return
     try:
         new = replies(st["since"], api)
-    except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as e:
+    except (OSError, RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as e:
         st.update(checked=now, error=str(e)[:200])  # shown in the summary; retried next interval
     else:
         for r in new:

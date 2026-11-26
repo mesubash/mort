@@ -18,6 +18,8 @@ def read(host, path, timeout=20):
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return None, "ssh timed out"
+    except OSError as e:
+        return None, f"cannot run ssh: {e.strerror}"
     if out.returncode == 255:
         return None, out.stderr.strip().splitlines()[-1] if out.stderr.strip() else "ssh failed"
     if out.returncode != 0:
