@@ -33,7 +33,7 @@ def read_status(slug):
     return (m.group(1), None) if m else (None, f"unexpected reply: {out.strip()[:100]}")
 
 
-def track(slug, name=None, pull=None):
+def track(slug, name=None, pull=None, every=None):
     if not SLUG.fullmatch(slug):
         raise SystemExit(f"mort: kernel must look like owner/kernel-name, got {slug!r}")
     if pull is not None:
@@ -43,15 +43,15 @@ def track(slug, name=None, pull=None):
     name = name or slug.split("/")[1]
     db = state.connect()
     check_free(db, name)
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, started, kind, target, pull)"
-               " VALUES (?, NULL, ?, ?, 'kaggle', ?, ?)",
-               (name, f"kaggle {slug}", time.time(), slug, str(pull) if pull else None))
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, started, kind, target, pull, every)"
+               " VALUES (?, NULL, ?, ?, 'kaggle', ?, ?, ?)",
+               (name, f"kaggle {slug}", time.time(), slug, str(pull) if pull else None, every))
     db.commit()
     return name
 
 
 def poll(db, job, now):
-    if job["tried_at"] and now - job["tried_at"] < INTERVAL:
+    if job["tried_at"] and now - job["tried_at"] < (job["every"] or INTERVAL):
         return
     word, error = read_status(job["target"])
     if error:

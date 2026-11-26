@@ -27,7 +27,7 @@ def read(host, path, timeout=20):
     return out.stdout, None
 
 
-def track(host, path, name=None, done=r"^DONE\b", failed=r"^FAIL"):
+def track(host, path, name=None, done=r"^DONE\b", failed=r"^FAIL", every=None):
     if not HOST.fullmatch(host):
         raise SystemExit(f"mort: bad host {host!r}")
     for pattern in (done, failed):
@@ -38,16 +38,17 @@ def track(host, path, name=None, done=r"^DONE\b", failed=r"^FAIL"):
     name = name or re.sub(r"[^A-Za-z0-9._-]", "-", PurePosixPath(path).parent.name or host)
     db = state.connect()
     check_free(db, name)
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, started, kind, target, done_marker, failed_marker)"
-               " VALUES (?, NULL, ?, ?, 'ssh', ?, ?, ?)",
-               (name, f"ssh {host} {path}", time.time(), f"{host}:{path}", done, failed))
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, started, kind, target, done_marker, failed_marker, every)"
+               " VALUES (?, NULL, ?, ?, 'ssh', ?, ?, ?, ?)",
+               (name, f"ssh {host} {path}", time.time(), f"{host}:{path}", done, failed, every))
     db.commit()
     return name
 
 
 def poll(db, job, now):
-    """Read the remote file unless the host failed less than BACKOFF seconds ago."""
-    if job["remote_error"] and job["tried_at"] and now - job["tried_at"] < BACKOFF:
+    """Read the remote file, at most every `every` seconds, and every BACKOFF seconds while the host fails."""
+    wait = max(job["every"] or 0, BACKOFF if job["remote_error"] else 0)
+    if job["tried_at"] and now - job["tried_at"] < wait:
         return
     host, path = job["target"].split(":", 1)
     text, error = read(host, path)

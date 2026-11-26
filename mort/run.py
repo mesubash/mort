@@ -108,6 +108,8 @@ def start(cmd, name=None, stall_after=1200, lock=None, watch=None, watch_log=Non
     exit_file.unlink(missing_ok=True)
     if shutil.which("caffeinate"):
         cmd = ["caffeinate", "-dims", *cmd]
+    elif shutil.which("systemd-inhibit"):
+        cmd = ["systemd-inhibit", "--what=sleep:idle", "--why=mort job", *cmd]
     env = dict(os.environ, MORT_EXIT=str(exit_file), MORT_LOCK=str(lock_path or ""), MORT_PID_FIELD=str(pid_field))
     with open(log, "w") as out:
         pid = subprocess.Popen(["sh", "-c", WRAPPER, "mort", *cmd], stdin=subprocess.DEVNULL,

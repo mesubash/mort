@@ -31,10 +31,12 @@ def main(argv=None):
     ts.add_argument("path")
     ts.add_argument("--name", help="job name (default: the folder holding the file)")
     ts.add_argument("--done", default=r"^DONE\b", metavar="REGEX", help="last line meaning success (default ^DONE)")
+    ts.add_argument("--every", type=float, metavar="MIN", help="minutes between reads (default: every check, 1 min)")
     ts.add_argument("--failed", default=r"^FAIL", metavar="REGEX", help="last line meaning failure (default ^FAIL)")
     tk = tr.add_parser("kaggle", help="watch a Kaggle notebook run (uses the kaggle CLI)")
     tk.add_argument("kernel", help="owner/kernel-name")
     tk.add_argument("--name", help="job name (default: the kernel name)")
+    tk.add_argument("--every", type=float, metavar="MIN", help="minutes between status reads (default 5)")
     tk.add_argument("--pull", metavar="DIR", help="download the output here when it completes (empty or new folder)")
     tr.add_parser("github", help="notify on replies to your open issues and pull requests (uses gh)")
     log = sub.add_parser("log", help="show a job's log")
@@ -43,7 +45,7 @@ def main(argv=None):
     log.add_argument("-f", action="store_true", help="keep following the log")
     sub.add_parser("kill", help="stop a job after asking, and free its lock").add_argument("name")
     sub.add_parser("check", help="apply the rules once and send new events (the daemon runs this)")
-    dm = sub.add_parser("daemon", help="run mort check every minute in the background (launchd)")
+    dm = sub.add_parser("daemon", help="run mort check every minute in the background (launchd on macOS, a systemd user timer on Linux)")
     dm.add_argument("action", choices=["install", "uninstall", "status"])
     sub.add_parser("forget", help="stop watching a job").add_argument("name")
     args = parser.parse_args(argv)
@@ -57,7 +59,7 @@ def main(argv=None):
         name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock, args.watch, args.log)
         print(f"started {name} (pid {pid}), log {log}")
     elif args.command == "track" and args.kind == "kaggle":
-        name = kaggle.track(args.kernel, args.name, args.pull)
+        name = kaggle.track(args.kernel, args.name, args.pull, args.every and args.every * 60)
         print(f"tracking {name} ({args.kernel}), checked every 5 minutes")
     elif args.command == "track" and args.kind == "github":
         db = state.connect()
@@ -65,7 +67,7 @@ def main(argv=None):
         db.commit()
         print("watching replies on your open issues and pull requests, checked every 5 minutes")
     elif args.command == "track" and args.kind == "ssh":
-        name = remote.track(args.host, args.path, args.name, args.done, args.failed)
+        name = remote.track(args.host, args.path, args.name, args.done, args.failed, args.every and args.every * 60)
         print(f"tracking {name} ({args.host}:{args.path}); the daemon reads it every minute")
     elif args.command == "track":
         if args.done and not args.log:

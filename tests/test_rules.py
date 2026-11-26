@@ -80,3 +80,21 @@ class PidAlive(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Linux(unittest.TestCase):
+    def test_meminfo(self):
+        from mort.machine import parse_meminfo
+        swap, ram = parse_meminfo("MemTotal:       16384000 kB\nSwapTotal:       4194304 kB\nSwapFree:        3145728 kB\n")
+        self.assertAlmostEqual(swap, 1.0)
+        self.assertAlmostEqual(ram, 16384000 / 1024 ** 2)
+
+    def test_systemd_units(self):
+        from pathlib import Path
+        from mort.daemon import service_text, timer_text
+        svc = service_text(Path("/home/u/.mort/daemon.log"))
+        self.assertIn("ExecStart=", svc)
+        self.assertIn("-m mort check", svc)
+        self.assertIn("StandardOutput=append:/home/u/.mort/daemon.log", svc)
+        self.assertIn('Environment="PYTHONPATH=', svc)
+        self.assertIn("OnUnitActiveSec=60", timer_text(60))

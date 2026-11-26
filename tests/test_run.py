@@ -385,3 +385,16 @@ class WatchLog(unittest.TestCase):
         db.commit()
         check({}, notify=lambda m, s="": None, reading=(0.0, 100.0, 16.0))
         self.assertIn("part_b: 5/9", status(find("multi"))[1])
+
+
+class Every(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+    setup_remote, run_check = Ssh.setup_remote, Ssh.run_check
+
+    def test_ssh_read_at_most_every(self):
+        from mort.remote import track
+        track("my-server", "/jobs/e/STATUS", every=600)
+        self.setup_remote([("step 1\n", None), ("step 2\n", None)])
+        self.run_check()
+        self.run_check()
+        self.assertEqual(len(self.calls), 1)

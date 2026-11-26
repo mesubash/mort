@@ -19,10 +19,21 @@ def parse_swap(text):
     return float(m.group(1)) / (1024 if m.group(2) == "M" else 1)
 
 
+def parse_meminfo(text):
+    """(swap used GB, RAM GB) from Linux /proc/meminfo, whose values are in kB."""
+    kb = {k: int(v.split()[0]) for k, v in (line.split(":", 1) for line in text.splitlines() if ":" in line)}
+    return (kb["SwapTotal"] - kb["SwapFree"]) / 1024 ** 2, kb["MemTotal"] / 1024 ** 2
+
+
 def readings():
     """(swap used GB or None, free disk GB, RAM GB or None)."""
+    disk = shutil.disk_usage(Path.home()).free / GB
+    meminfo = Path("/proc/meminfo")
+    if meminfo.exists():
+        swap, ram = parse_meminfo(meminfo.read_text())
+        return swap, disk, ram
     ram = sysctl("hw.memsize")
-    return parse_swap(sysctl("vm.swapusage")), shutil.disk_usage(Path.home()).free / GB, int(ram) / GB if ram else None
+    return parse_swap(sysctl("vm.swapusage")), disk, int(ram) / GB if ram else None
 
 
 def limits(config, ram_gb):
