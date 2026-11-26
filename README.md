@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-phase%201-orange" alt="Status: phase 1">
+  <img src="https://img.shields.io/badge/status-v0.1%20local-yellowgreen" alt="Status: v0.1 local">
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/dependencies-none-3fb950" alt="No dependencies">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
@@ -95,7 +95,7 @@ $ mort track kaggle user/my-kernel --pull runs/     # planned
 
 ## Roadmap
 
-- [ ] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications (built; in trial use)
+- [x] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications
 - [ ] **v0.2** remote: ssh STATUS files, Kaggle, GitHub replies, swap and disk
 - [ ] **v0.3** stall rules: a number that must keep changing, progress line, time left
 - [ ] **v1.0** public release: phone push, Homebrew, PyPI, Linux

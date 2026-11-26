@@ -4,6 +4,7 @@ Dated decisions and progress, newest first.
 
 ## 2026-11-26
 
+- Phase 1 done. Part 1 of "done when": a small real training run (numpy MLP, 400 epochs, acc 0.999) started with `mort run --lock` took the real lock, and the daemon sent "finished" 87 s after start and the lock was freed. Part 2 (lock freed after a crash) passed on 2026-11-25. The author's long research runs have not gone through mort yet; they are the first thing to watch during phase 2.
 - Manual trial of phase 1 on the author's Mac with fake jobs, all passed: finished and died notifications arrive within a minute from the daemon; summary and log; stall alert once (`--stall 1`); kill with confirmation; lock written in the real lock file's format, a second `--lock` run refused while held, lock removed when the job ended; a job survives closing its terminal. Fixes from the trial: the event is now the notification's bold line; exits above 128 show the signal name (`exit 143, SIGTERM`); a job with an empty log shows "no output yet" instead of a made-up output time. Remaining for phase 1: one real training run.
 
 ## 2026-11-25
