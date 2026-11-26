@@ -40,7 +40,7 @@ class StaleLock(unittest.TestCase):
         self.assertFalse(stale_lock("  \n", 2, DEAD))
 
     def test_pid_counted_from_end_with_spaces_in_name(self):
-        line = "repo mean-teacher seeds 4242 2026-11-25_10:00"
+        line = "repo teacher seeds 4242 2026-11-25_10:00"
         self.assertTrue(stale_lock(line, -2, DEAD))
         self.assertFalse(stale_lock(line, -2, ALIVE))
 
