@@ -29,6 +29,8 @@
 
 Training runs, data jobs, scrapers, remote scripts and hosted notebooks run in different places, and most of them report nothing when they go wrong. mort is a small background program that watches all of them and speaks up only when something changes.
 
+<p align="center"><img src="docs/demo.svg" width="760" alt="Starting a job with mort, seeing its progress, then a notification that it died"></p>
+
 ## What it catches
 
 | Event | When |
