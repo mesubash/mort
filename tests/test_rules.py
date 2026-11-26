@@ -2,7 +2,8 @@ import os
 import subprocess
 import unittest
 
-from mort.rules import job_event, pid_alive, stale_lock
+from mort.machine import parse_swap
+from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
 
 ALIVE = lambda pid: True
 DEAD = lambda pid: False
@@ -46,6 +47,20 @@ class StaleLock(unittest.TestCase):
     def test_unreadable_pid(self):
         self.assertTrue(stale_lock("repo job", 2, ALIVE))
         self.assertTrue(stale_lock("repo job abc", 2, ALIVE))
+
+
+class Machine(unittest.TestCase):
+    def test_limits_and_margin(self):
+        self.assertEqual(machine_alerts(8.0, 4.0, 8, 4, set()), set())  # exactly at the limit is fine
+        self.assertEqual(machine_alerts(8.1, 3.9, 8, 4, set()), {"swap", "disk"})
+        self.assertEqual(machine_alerts(7.3, 4.3, 8, 4, {"swap", "disk"}), {"swap", "disk"})
+        self.assertEqual(machine_alerts(7.1, 4.5, 8, 4, {"swap", "disk"}), set())
+        self.assertEqual(machine_alerts(None, 50, 8, 4, set()), set())
+
+    def test_parse_swap(self):
+        self.assertAlmostEqual(parse_swap("total = 2048.00M  used = 512.00M  free = 1536.00M  (encrypted)"), 0.5)
+        self.assertAlmostEqual(parse_swap("total = 8.00G  used = 6.50G  free = 1.50G"), 6.5)
+        self.assertIsNone(parse_swap(""))
 
 
 class PidAlive(unittest.TestCase):

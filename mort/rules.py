@@ -36,3 +36,17 @@ def stale_lock(text, pid_field, alive=pid_alive):
     except (IndexError, ValueError):
         return True  # another tool wrote the lock; a line with no readable PID protects nothing
     return not alive(pid)
+
+
+def machine_alerts(swap_gb, disk_gb, swap_max_gb, disk_min_gb, active):
+    """Return the set of machine alerts that are on: "swap", "disk".
+
+    An alert that is already on stays on until its value is 10% clear of the limit, so a value
+    hovering at the limit does not alert every minute. swap_gb is None where swap cannot be read.
+    """
+    on = set()
+    if swap_gb is not None and (swap_gb > swap_max_gb or ("swap" in active and swap_gb > swap_max_gb * 0.9)):
+        on.add("swap")
+    if disk_gb < disk_min_gb or ("disk" in active and disk_gb < disk_min_gb * 1.1):
+        on.add("disk")
+    return on

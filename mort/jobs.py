@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from mort import state
-from mort.rules import job_event, pid_alive, stale_lock
+from mort import machine, state
+from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
 from mort.run import lock_settings
 
 
@@ -62,7 +62,8 @@ def done_in(log, marker, tail=8192):
 MARK = {"running": " *", "stalled": " !", "finished": "ok", "died": " x"}
 
 
-def summary(lock_cfg):
+def summary(config, reading=None):
+    lock_cfg = config.get("lock")
     db = state.connect()
     lines = ["JOBS"]
     rows = db.execute("SELECT * FROM jobs ORDER BY started DESC").fetchall()
@@ -82,6 +83,10 @@ def summary(lock_cfg):
         else:
             lock = f"held: {text}"
         lines += ["LOCK", f"   {lock}"]
+    swap, disk, ram = reading or machine.readings()
+    swap_max, disk_min = machine.limits(config, ram)
+    swap_txt = "swap ?" if swap is None else f"swap {swap:.1f} GB used{' !' if swap > swap_max else ''}"
+    lines += ["MACHINE", f"   {swap_txt}   disk {disk:.1f} GB free{' !' if disk < disk_min else ''}"]
     return "\n".join(lines)
 
 
@@ -147,8 +152,9 @@ def notify(message, subtitle=""):
                         "-e", "end run", message, subtitle], capture_output=True)
 
 
-def check(lock_cfg, notify=notify):
+def check(config, notify=notify, reading=None):
     """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
+    lock_cfg = config.get("lock")
     db = state.connect()
     rows = db.execute("SELECT * FROM jobs").fetchall()
     for row in rows:
@@ -159,17 +165,31 @@ def check(lock_cfg, notify=notify):
         if new is not None:
             notify(f"{row['name']} {st}", detail)
         db.execute("UPDATE jobs SET last_event = ? WHERE name = ?", (new, row["name"]))
-    db.commit()
     if lock_cfg is not None:
-        check_lock(lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
+        check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
+    check_machine(db, config, notify, reading or machine.readings())
+    db.commit()
 
 
-def check_lock(lock_cfg, mort_pids, notify):
+def check_machine(db, config, notify, reading):
+    swap, disk, ram = reading
+    swap_max, disk_min = machine.limits(config, ram)
+    active = {r["key"] for r in db.execute("SELECT key FROM alerts WHERE key IN ('swap', 'disk')")}
+    on = machine_alerts(swap, disk, swap_max, disk_min, active)
+    if "swap" in on - active:
+        notify(f"swap high: {swap:.1f} GB used", "a job may be thrashing; it can crawl for hours")
+    if "disk" in on - active:
+        notify(f"disk low: {disk:.1f} GB free", f"below {disk_min:g} GB")
+    db.execute("DELETE FROM alerts WHERE key IN ('swap', 'disk')")
+    db.executemany("INSERT INTO alerts VALUES (?, NULL)", [(k,) for k in on])
+
+
+def check_lock(db, lock_cfg, mort_pids, notify):
     path, _, pid_field = lock_settings(lock_cfg)
-    seen = state.HOME / "lock.warned"
+    warned = db.execute("SELECT value FROM alerts WHERE key = 'lock'").fetchone()
     text = path.read_text().strip() if path.exists() else ""
     if not text or not stale_lock(text, -pid_field):
-        seen.unlink(missing_ok=True)
+        db.execute("DELETE FROM alerts WHERE key = 'lock'")
         return
     fields = text.split()
     word = fields[-pid_field] if len(fields) >= pid_field else ""
@@ -177,6 +197,6 @@ def check_lock(lock_cfg, mort_pids, notify):
     if owner:
         path.unlink()
         notify(f"freed the lock left by {owner}", text)
-    elif not seen.exists() or seen.read_text() != text:
+    elif warned is None or warned["value"] != text:
         notify("stale lock: its process is gone", text)
-        seen.write_text(text)
+        db.execute("INSERT OR REPLACE INTO alerts VALUES ('lock', ?)", (text,))

@@ -147,7 +147,7 @@ class Check(unittest.TestCase):
     def run_check(self, lock=None):
         from mort.jobs import check
         sent = []
-        check(lock, notify=lambda m, s="": sent.append(m))
+        check({"lock": lock} if lock else {}, notify=lambda m, s="": sent.append(m), reading=(0.0, 100.0, 16.0))
         return sent
 
     def test_event_sent_once(self):
@@ -190,3 +190,18 @@ class Check(unittest.TestCase):
         time.sleep(0.2)
         from mort.rules import pid_alive
         self.assertFalse(any(pid_alive(c) for c in children))
+
+
+class Machine(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def test_alert_once_then_clear_with_margin(self):
+        from mort.jobs import check
+        sent = []
+        run = lambda swap, disk: check({}, notify=lambda m, s="": sent.append(m.split(":")[0]), reading=(swap, disk, 16.0))
+        run(9.0, 3.0)
+        self.assertEqual(sorted(sent), ["disk low", "swap high"])
+        run(9.0, 3.0); run(7.5, 4.2)  # still on: within 10% of the limits
+        self.assertEqual(len(sent), 2)
+        run(1.0, 20.0); run(9.0, 20.0)  # cleared, then swap again
+        self.assertEqual(sent[-1], "swap high")

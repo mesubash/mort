@@ -17,6 +17,9 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS jobs (
 )"""
 
 
+ALERTS = "CREATE TABLE IF NOT EXISTS alerts (key TEXT PRIMARY KEY, value TEXT)"
+
+
 def connect(path=None):
     if path is None:
         HOME.mkdir(exist_ok=True)
@@ -24,6 +27,7 @@ def connect(path=None):
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.execute(SCHEMA)
+    db.execute(ALERTS)
     if "done_marker" not in [r[1] for r in db.execute("PRAGMA table_info(jobs)")]:
         db.execute("ALTER TABLE jobs ADD COLUMN done_marker TEXT")  # state.db made before this column existed
     return db

@@ -58,7 +58,7 @@ def main(argv=None):
         running, pid = jobs.forget(args.name)
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
     elif args.command == "check":
-        jobs.check(config.get("lock"))
+        jobs.check(config)
     elif args.command == "daemon":
         if args.action == "install":
             plist, log = daemon.install()
@@ -68,6 +68,6 @@ def main(argv=None):
         else:
             print("daemon: running" if daemon.running() else "daemon: not installed (mort daemon install)")
     else:
-        print(jobs.summary(config.get("lock")))
+        print(jobs.summary(config))
         if not daemon.running():
             print("DAEMON\n   not running, so nothing is sent; start it with: mort daemon install")
