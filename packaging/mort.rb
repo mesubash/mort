@@ -3,7 +3,7 @@
 class Mort < Formula
   desc "Watch long-running jobs and say when they die, stall or finish"
   homepage "https://github.com/mesubash/mort"
-  url "https://github.com/mesubash/mort/archive/refs/tags/v0.3.0.tar.gz"
+  url "https://github.com/mesubash/mort/archive/refs/tags/v0.3.1.tar.gz"
   sha256 "FILL_IN_AT_RELEASE"
   license "MIT"
 
