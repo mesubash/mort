@@ -4,6 +4,7 @@ Dated decisions and progress, newest first.
 
 ## 2026-11-26
 
+- Pre-publication check of the whole git history: no server hostname, server path, Kaggle username, lock path or machine name in any commit. Research project names in the current log and one test were made generic; older commits keep them, and every commit carries the author's email. User decisions: keep the history as is (no rewrite), and publish only after the two-week trial, as the plan says. Release steps are in `docs/RELEASE.md`.
 - Package name is `mort-watcher` (user's choice; free on PyPI). The build was checked in a throwaway venv: `python -m build` makes an sdist and a wheel; the sdist holds only the package, tests, README, LICENSE and pyproject (no local-only files); installing the wheel in a clean venv gives a working `mort` command (`mort --version`, summary, subcommands).
 - `--every MIN` on `track ssh` and `track kaggle` sets the time between reads (ssh default: every check; Kaggle default 5 min); an unreachable host still waits 5 min.
 - Linux support, untested on a real Linux machine (none here, no Docker): swap and RAM from `/proc/meminfo`; desktop notices through `notify-send`; jobs kept awake with `systemd-inhibit --what=sleep:idle` where there is no `caffeinate`; `mort daemon install` writes `~/.config/systemd/user/mort.service` (oneshot, output appended to `~/.mort/daemon.log`) and `mort.timer` (every 60 s) and runs `systemctl --user enable --now mort.timer`. Unit tests cover `/proc/meminfo` parsing and the unit file text. First run on Linux is a release check.
