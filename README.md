@@ -49,7 +49,8 @@ Each event is sent once.
 Python 3.11 or newer, on macOS or Linux. mort has no dependencies. Linux support is new and has had less use than macOS.
 
 ```console
-$ pipx install git+https://github.com/mesubash/mort
+$ brew install mesubash/tap/mort                      # macOS, Homebrew
+$ pipx install git+https://github.com/mesubash/mort   # or with pipx, anywhere
 $ mort daemon install
 ```
 
@@ -204,7 +205,8 @@ quiet = "23:00-07:00"
 - [x] **v0.1** local jobs, lock file, desktop notifications
 - [x] **v0.2** ssh STATUS files, Kaggle, GitHub replies, swap and disk
 - [x] **v0.3** watched-number stalls, progress, time left; phone push, quiet hours, Linux
-- [ ] **v1.0** after a two-week trial: PyPI and Homebrew packages
+- [x] **v0.3.0** public: GitHub release, Homebrew tap
+- [ ] PyPI package `mort-watcher`
 
 Details and later ideas are in [docs/PLAN.md](docs/PLAN.md).
 
