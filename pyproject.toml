@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mort-watch"
+name = "mort-watcher"
 dynamic = ["version"]
 description = "Holds on to every long job you start, and tells you when one dies, stalls or finishes."
 readme = "README.md"
