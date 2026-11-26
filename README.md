@@ -65,6 +65,7 @@ LOCK
 | `mort run [--name N] [--lock] [--stall MIN] -- CMD` | start a job detached and awake, log it, take the lock if asked |
 | `mort track pid PID [--log FILE] [--done TEXT]` | watch a process mort did not start; `--done` is the log text that means success |
 | `mort track ssh HOST PATH [--done RE] [--failed RE]` | watch a STATUS file on a remote host, read-only |
+| `mort track kaggle OWNER/KERNEL [--pull DIR]` | watch a Kaggle notebook run, download its output into an empty folder when done |
 | `mort track github` | notify when someone else comments on or reviews your open issues and pull requests |
 | `mort` | jobs, lock, and a warning if the daemon is off |
 | `mort log NAME [-n 50] [-f]` | show or follow a job's log |
@@ -93,10 +94,10 @@ Replies to your open issues and pull requests, through your `gh` login, checked 
 $ mort track github
 ```
 
-Kaggle comes next:
+Kaggle notebook runs, through your `kaggle` CLI, checked every 5 minutes; the output is downloaded when the run completes:
 
 ```console
-$ mort track kaggle user/my-kernel --pull runs/     # planned
+$ mort track kaggle user/my-kernel --pull runs/my-kernel
 ```
 
 ## How it works
@@ -110,7 +111,7 @@ $ mort track kaggle user/my-kernel --pull runs/     # planned
 ## Roadmap
 
 - [x] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications
-- [ ] **v0.2** remote: ssh STATUS files, Kaggle, GitHub replies, swap and disk
+- [ ] **v0.2** remote: ssh STATUS files, Kaggle, GitHub replies, swap and disk (built; in trial use)
 - [ ] **v0.3** stall rules: a number that must keep changing, progress line, time left
 - [ ] **v1.0** public release: phone push, Homebrew, PyPI, Linux
 

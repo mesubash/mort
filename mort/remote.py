@@ -43,9 +43,8 @@ def track(host, path, name=None, done=r"^DONE\b", failed=r"^FAIL"):
     return name
 
 
-def poll(db, job, now=None):
+def poll(db, job, now):
     """Read the remote file unless the host failed less than BACKOFF seconds ago."""
-    now = now or time.time()
     if job["remote_error"] and job["tried_at"] and now - job["tried_at"] < BACKOFF:
         return
     host, path = job["target"].split(":", 1)

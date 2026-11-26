@@ -17,13 +17,14 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS jobs (
 
 ADDED = {
     "done_marker": "TEXT",
-    "kind": "TEXT NOT NULL DEFAULT 'local'",  # local or ssh
+    "kind": "TEXT NOT NULL DEFAULT 'local'",  # local, ssh or kaggle
     "failed_marker": "TEXT",
     "target": "TEXT",           # ssh: host:path
     "remote_text": "TEXT",      # ssh: last lines read
     "remote_error": "TEXT",
     "remote_at": "REAL",        # ssh: time of the last good read
     "tried_at": "REAL",
+    "pull": "TEXT",             # kaggle: folder for the output
 }
 
 

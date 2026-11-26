@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from mort import github, machine, remote, state
+from mort import github, kaggle, machine, remote, state
 from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
 from mort.run import lock_settings
 
@@ -25,6 +25,8 @@ def status(job, now=None):
     now = now or time.time()
     if job["kind"] == "ssh":
         return remote.status(job, now)
+    if job["kind"] == "kaggle":
+        return kaggle.status(job, now)
     log = Path(job["log"]) if job["log"] else None
     _, exit_file = state.job_files(job["name"])
     code = int(exit_file.read_text()) if exit_file.exists() else None
@@ -104,7 +106,7 @@ def kill(name, confirm=input):
     row = find(name)
     pid = row["pid"]
     if row["kind"] != "local":
-        raise SystemExit(f"mort: {name} runs on {row['target'].split(':')[0]}; mort only reads remote jobs")
+        raise SystemExit(f"mort: {name} is a {row['kind']} job; mort only reads remote jobs")
     if not pid_alive(pid):
         raise SystemExit(f"mort: {name} is not running")
     if confirm(f"stop {name} (pid {pid}, started {ago(time.time() - row['started'])} ago)? [y/N] ").strip().lower() != "y":
@@ -161,22 +163,25 @@ def check(config, notify=notify, reading=None, gh_api=None):
     """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
     lock_cfg = config.get("lock")
     db = state.connect()
-    for row in db.execute("SELECT * FROM jobs WHERE kind = 'ssh'").fetchall():
+    now = time.time()
+    for row in db.execute("SELECT * FROM jobs WHERE kind IN ('ssh', 'kaggle')").fetchall():
         if row["last_event"] not in ("finished", "died"):
-            remote.poll(db, row)
+            (remote if row["kind"] == "ssh" else kaggle).poll(db, row, now)
     rows = db.execute("SELECT * FROM jobs").fetchall()
     for row in rows:
         st, detail = status(row)
         new = None if st in ("running", "unknown") else st
         if new == row["last_event"]:
             continue
+        if new == "finished" and row["kind"] == "kaggle" and row["pull"]:
+            detail = kaggle.pull_output(row)
         if new is not None:
             notify(f"{row['name']} {st}", detail)
         db.execute("UPDATE jobs SET last_event = ? WHERE name = ?", (new, row["name"]))
     if lock_cfg is not None:
         check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify)
     check_machine(db, config, notify, reading or machine.readings())
-    github.check(db, notify, time.time(), **({"api": gh_api} if gh_api else {}))
+    github.check(db, notify, now, **({"api": gh_api} if gh_api else {}))
     db.commit()
 
 

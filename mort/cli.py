@@ -2,7 +2,7 @@ import argparse
 import os
 import time
 
-from mort import daemon, github, jobs, remote, state
+from mort import daemon, github, jobs, kaggle, remote, state
 from mort.run import start, track
 
 
@@ -28,6 +28,10 @@ def main(argv=None):
     ts.add_argument("--name", help="job name (default: the folder holding the file)")
     ts.add_argument("--done", default=r"^DONE\b", metavar="REGEX", help="last line meaning success (default ^DONE)")
     ts.add_argument("--failed", default=r"^FAIL", metavar="REGEX", help="last line meaning failure (default ^FAIL)")
+    tk = tr.add_parser("kaggle", help="watch a Kaggle notebook run (uses the kaggle CLI)")
+    tk.add_argument("kernel", help="owner/kernel-name")
+    tk.add_argument("--name", help="job name (default: the kernel name)")
+    tk.add_argument("--pull", metavar="DIR", help="download the output here when it completes (empty or new folder)")
     tr.add_parser("github", help="notify on replies to your open issues and pull requests (uses gh)")
     log = sub.add_parser("log", help="show a job's log")
     log.add_argument("name")
@@ -48,6 +52,9 @@ def main(argv=None):
         lock = config.get("lock", {}) if args.lock else None
         name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock)
         print(f"started {name} (pid {pid}), log {log}")
+    elif args.command == "track" and args.kind == "kaggle":
+        name = kaggle.track(args.kernel, args.name, args.pull)
+        print(f"tracking {name} ({args.kernel}), checked every 5 minutes")
     elif args.command == "track" and args.kind == "github":
         db = state.connect()
         github.enable(db, time.time())
@@ -63,8 +70,8 @@ def main(argv=None):
         print(f"tracking {name} (pid {args.pid})")
     elif args.command == "log":
         row = jobs.find(args.name)
-        if row["kind"] == "ssh":
-            print(row["remote_text"] or "(nothing read yet)", end="")
+        if row["kind"] != "local":
+            print(row["remote_text"] or "(nothing read yet)")
             return
         if not row["log"]:
             raise SystemExit(f"mort: {args.name} has no log; track it with --log")

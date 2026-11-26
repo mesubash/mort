@@ -293,3 +293,46 @@ class GitHub(unittest.TestCase):
         db.commit()
         run()
         self.assertEqual(len(sent), 2)  # the same replies are not sent again
+
+
+class Kaggle(unittest.TestCase):
+    setUp, tearDown = Run.setUp, Run.tearDown
+
+    def test_running_then_complete_pulls_once(self):
+        from mort import kaggle
+        from mort.jobs import check
+        replies = ["QUEUED", "RUNNING", "COMPLETE"]
+        pulled = []
+        old = kaggle.read_status, kaggle.kaggle
+        kaggle.read_status = lambda slug: (replies.pop(0), None)
+        kaggle.kaggle = lambda *a, timeout=0: (pulled.append(a) or "", None)
+        self.addCleanup(lambda: (setattr(kaggle, "read_status", old[0]), setattr(kaggle, "kaggle", old[1])))
+        out = Path(self.tmp.name) / "out"
+        kaggle.track("user/my-kernel", pull=str(out))
+        sent = []
+        db = state.connect()
+        for _ in range(4):
+            check({}, notify=lambda m, s="": sent.append(f"{m}: {s}"), reading=(0.0, 100.0, 16.0))
+            db.execute("UPDATE jobs SET tried_at = 0")  # skip the 5-minute wait
+            db.commit()
+        self.assertEqual(sent, [f"my-kernel finished: output in {out.resolve()}"])
+        self.assertEqual(len(pulled), 1)
+        self.assertEqual(pulled[0][:3], ("kernels", "output", "user/my-kernel"))
+
+    def test_error_is_died_and_bad_input_refused(self):
+        from mort import kaggle
+        from mort.jobs import find, status
+        old = kaggle.read_status
+        kaggle.read_status = lambda slug: ("ERROR", None)
+        self.addCleanup(setattr, kaggle, "read_status", old)
+        kaggle.track("user/k2")
+        db = state.connect()
+        kaggle.poll(db, find("k2"), time.time())
+        db.commit()
+        self.assertEqual(status(find("k2"))[0], "died")
+        full = Path(self.tmp.name) / "full"
+        full.mkdir()
+        (full / "x").write_text("x")
+        for slug, pull in (("not-a-slug", None), ("user/k3", str(full))):
+            with self.assertRaises(SystemExit):
+                kaggle.track(slug, pull=pull)
