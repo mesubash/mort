@@ -2,6 +2,10 @@
 
 Dated decisions and progress, newest first.
 
+## 2026-11-26
+
+- Manual trial of phase 1 on the author's Mac with fake jobs, all passed: finished and died notifications arrive within a minute from the daemon; summary and log; stall alert once (`--stall 1`); kill with confirmation; lock written in the real lock file's format, a second `--lock` run refused while held, lock removed when the job ended; a job survives closing its terminal. Fixes from the trial: the event is now the notification's bold line; exits above 128 show the signal name (`exit 143, SIGTERM`); a job with an empty log shows "no output yet" instead of a made-up output time. Remaining for phase 1: one real training run.
+
 ## 2026-11-25
 
 - `mort kill` on an adopted job now signals the process and all its descendants (found with `ps -A -o pid,ppid`). Signalling only the process left children running: a `run_*.sh` script started under `nohup` dies on TERM while its Python child keeps going. Its process group is not used because an adopted job may share a group with the user's shell. Found while checking: `caffeinate -dims cmd` becomes `cmd` (same PID) and leaves a helper child, so the PID to track is the one running the command.
