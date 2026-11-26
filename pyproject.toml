@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mort-watch"
+dynamic = ["version"]
+description = "Holds on to every long job you start, and tells you when one dies, stalls or finishes."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Monitoring",
+]
+
+[project.urls]
+Homepage = "https://github.com/mesubash/mort"
+
+[project.scripts]
+mort = "mort.cli:main"
+
+[tool.setuptools]
+packages = ["mort"]
+
+[tool.setuptools.dynamic]
+version = { attr = "mort.__version__" }

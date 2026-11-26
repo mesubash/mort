@@ -1,7 +1,6 @@
 import glob
 import os
 import re
-import shutil
 import signal
 import subprocess
 import time
@@ -213,18 +212,11 @@ def forget(name):
     return row["kind"] == "local" and pid_alive(row["pid"]), row["pid"]
 
 
-def notify(message, subtitle=""):
-    print(f"mort: {message}" + (f": {subtitle}" if subtitle else ""), flush=True)
-    if shutil.which("osascript"):
-        # Text goes in as arguments, never into the script, so a job name cannot inject AppleScript.
-        subprocess.run(["osascript", "-e", "on run argv", "-e",
-                        'display notification (item 2 of argv) with title "mort" subtitle (item 1 of argv)',
-                        "-e", "end run", message, subtitle], capture_output=True)
-
-
-def check(config, notify=notify, reading=None, gh_api=None):
+def check(config, notify, reading=None, gh_api=None):
     """Apply the rules once: send each new event, free a stale lock that a mort job left behind."""
     lock_cfg = config.get("lock")
+    if hasattr(notify, "flush"):
+        notify.flush()
     db = state.connect()
     now = time.time()
     for row in db.execute("SELECT * FROM jobs WHERE kind IN ('ssh', 'kaggle')").fetchall():

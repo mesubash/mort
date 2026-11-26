@@ -2,12 +2,13 @@ import argparse
 import os
 import time
 
-from mort import daemon, github, jobs, kaggle, remote, state
+from mort import __version__, daemon, github, jobs, kaggle, notify, remote, state
 from mort.run import start, track
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="mort", description="Watch long jobs and say when they die, stall or finish.")
+    parser.add_argument("--version", action="version", version=f"mort {__version__}")
     sub = parser.add_subparsers(dest="command")
     run = sub.add_parser("run", help="start a job detached and watch it")
     run.add_argument("--name", help="job name (default: the command's name)")
@@ -93,7 +94,7 @@ def main(argv=None):
         running, pid = jobs.forget(args.name)
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
     elif args.command == "check":
-        jobs.check(config)
+        jobs.check(config, notify.make(config))
     elif args.command == "daemon":
         if args.action == "install":
             plist, log = daemon.install()
