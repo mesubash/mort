@@ -63,6 +63,7 @@ def signal_name(code):
 
 
 COUNT = re.compile(r"(\d+)\s*/\s*(\d+)")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 def progress(job, now):
@@ -85,7 +86,8 @@ def observe(db, job, now):
     log = Path(job["log"])
     with open(log, "rb") as f:
         f.seek(max(0, log.stat().st_size - 16384))
-        lines = re.split(r"[\r\n]+", f.read().decode(errors="replace"))
+        text = ANSI.sub("", f.read().decode(errors="replace"))  # colour and cursor codes from progress bars
+    lines = re.split(r"[\r\n]+", text)
     rx = re.compile(job["watch"])
     for line in reversed(lines):
         m = rx.search(line)
@@ -100,7 +102,7 @@ def observe(db, job, now):
     if count and not start:
         start = f"{count.group(1)} {now}"
     db.execute("UPDATE jobs SET watch_value = ?, watch_changed = ?, progress = ?, progress_start = ? WHERE name = ?",
-               (value, changed, line.strip()[:200], start, job["name"]))
+               (value, changed, " ".join(line.split())[:200], start, job["name"]))
 
 
 def done_in(log, marker, tail=8192):
