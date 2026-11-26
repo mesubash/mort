@@ -14,7 +14,7 @@ Steps for a release. Each one that publishes something is done by the maintainer
 1. Make the repository public (GitHub settings).
 2. Tag and push: `git tag v<version> && git push origin v<version>`, then make a GitHub release from the tag.
 3. PyPI, name `mort-watcher` (the name `mort` is taken): `python3 -m twine upload dist/*`, with your own PyPI token.
-4. Homebrew: create the repository `homebrew-tap` under your account, copy `packaging/mort.rb` to `Formula/mort.rb`, set `sha256` to the output of `curl -sL <url> | shasum -a 256`, then check with `brew install --build-from-source <user>/tap/mort` and `brew test mort`.
+4. Homebrew: create the repository `homebrew-tap` under your account, copy `packaging/mort.rb` to `Formula/mort.rb` (it needs Homebrew's `python@3.14`), set `sha256` to the output of `curl -sL <url> | shasum -a 256`, then check with `brew install --build-from-source <user>/tap/mort` and `brew test mort`.
 5. Update the install section of the README to `pipx install mort-watcher` and `brew install <user>/tap/mort`.
 
 ## After publishing
