@@ -54,7 +54,19 @@ def ps(pid, field):
     return out.stdout.strip() or None
 
 
-def track(pid, name=None, log=None, stall_after=1200, done=None):
+def check_watch(watch):
+    if watch is None:
+        return None
+    try:
+        rx = re.compile(watch)
+    except re.error as e:
+        raise SystemExit(f"mort: bad --watch pattern: {e}")
+    if rx.groups < 1:
+        raise SystemExit("mort: --watch needs a group around the number, e.g. 'loss=([0-9.]+)'")
+    return watch
+
+
+def track(pid, name=None, log=None, stall_after=1200, done=None, watch=None):
     """Adopt a process mort did not start."""
     if not pid_alive(pid):
         raise SystemExit(f"mort: no running process {pid}")
@@ -67,17 +79,20 @@ def track(pid, name=None, log=None, stall_after=1200, done=None):
             raise SystemExit(f"mort: no log file at {log}")
     lstart = ps(pid, "lstart")
     started = datetime.strptime(lstart, "%a %b %d %H:%M:%S %Y").timestamp() if lstart else time.time()
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, done_marker)"
-               " VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?)",
+    if watch and log is None:
+        raise SystemExit("mort: --watch needs --log")
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, done_marker, watch)"
+               " VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)",
                (name, pid, ps(pid, "command"), str(log) if log else None, started,
-                stall_after if log else None, done))
+                stall_after if log else None, done, check_watch(watch)))
     db.commit()
     return name
 
 
-def start(cmd, name=None, stall_after=1200, lock=None):
+def start(cmd, name=None, stall_after=1200, lock=None, watch=None):
     """Start cmd detached. lock is the [lock] config table, or None for no lock."""
     name = name or Path(cmd[0]).name
+    check_watch(watch)
     db = state.connect()
     check_free(db, name)
 
@@ -102,8 +117,8 @@ def start(cmd, name=None, stall_after=1200, lock=None):
         line = fmt.format(
             name=name, pid=pid, cwd=Path.cwd().name, start=datetime.fromtimestamp(started).strftime("%Y-%m-%d_%H:%M"))
         lock_path.write_text(line + "\n")
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event)"
-               " VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
-               (name, pid, " ".join(cmd), str(log), started, stall_after, int(lock_path is not None)))
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, watch)"
+               " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)",
+               (name, pid, " ".join(cmd), str(log), started, stall_after, int(lock_path is not None), watch))
     db.commit()
     return name, pid, log

@@ -50,3 +50,10 @@ def machine_alerts(swap_gb, disk_gb, swap_max_gb, disk_min_gb, active):
     if disk_gb < disk_min_gb or ("disk" in active and disk_gb < disk_min_gb * 1.1):
         on.add("disk")
     return on
+
+
+def time_left(start_n, start_t, n, total, now):
+    """Seconds left at the rate seen since start, or None before any progress."""
+    if n <= start_n or now <= start_t or n >= total:
+        return None
+    return (total - n) * (now - start_t) / (n - start_n)

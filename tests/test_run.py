@@ -76,7 +76,7 @@ class Status(unittest.TestCase):
         os.utime(log, (t, t))
         if code is not None:
             exit_file.write_text(f"{code}\n")
-        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None, "kind": "local"})[0]
+        return status({"name": name, "pid": pid, "log": str(log), "started": time.time() - 100, "stall_after": 60, "done_marker": None, "kind": "local", "watch": None})[0]
 
     def test_states(self):
         self.assertEqual(self.job("a", 999999, code=0), "finished")
@@ -336,3 +336,33 @@ class Kaggle(unittest.TestCase):
         for slug, pull in (("not-a-slug", None), ("user/k3", str(full))):
             with self.assertRaises(SystemExit):
                 kaggle.track(slug, pull=pull)
+
+
+class Watch(unittest.TestCase):
+    setUp, tearDown = Check.setUp, Check.tearDown
+    add = Check.add
+
+    def test_frozen_number_stalls_though_log_grows(self):
+        from mort.jobs import check, find, status
+        log = self.add("w", os.getpid(), stall_after=60)
+        db = state.connect()
+        db.execute("UPDATE jobs SET watch = ? WHERE name = 'w'", (r"loss=([\d.]+)",))
+        db.commit()
+        sent = []
+        tick = lambda: check({}, notify=lambda m, s="": sent.append(m), reading=(0.0, 100.0, 16.0))
+        log.write_text("epoch 1/10 loss=0.90\r")
+        tick()
+        db.execute("UPDATE jobs SET watch_changed = watch_changed - 120 WHERE name = 'w'")  # 2 min pass
+        db.commit()
+        log.write_text("epoch 1/10 loss=0.90\nepoch 2/10 loss=0.90\n")  # log grew, number did not
+        tick()
+        self.assertEqual(sent, ["w stalled"])
+        log.write_text("epoch 3/10 loss=0.71\n")
+        tick()
+        self.assertEqual(status(find("w"))[0], "running")
+        self.assertIn("epoch 3/10 loss=0.71", status(find("w"))[1])
+
+    def test_watch_needs_a_group(self):
+        from mort.run import check_watch
+        with self.assertRaises(SystemExit):
+            check_watch("loss=[0-9.]+")

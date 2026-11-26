@@ -3,7 +3,7 @@ import subprocess
 import unittest
 
 from mort.machine import parse_swap
-from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
+from mort.rules import job_event, machine_alerts, pid_alive, stale_lock, time_left
 
 ALIVE = lambda pid: True
 DEAD = lambda pid: False
@@ -61,6 +61,13 @@ class Machine(unittest.TestCase):
         self.assertAlmostEqual(parse_swap("total = 2048.00M  used = 512.00M  free = 1536.00M  (encrypted)"), 0.5)
         self.assertAlmostEqual(parse_swap("total = 8.00G  used = 6.50G  free = 1.50G"), 6.5)
         self.assertIsNone(parse_swap(""))
+
+
+class TimeLeft(unittest.TestCase):
+    def test_rate_and_edges(self):
+        self.assertEqual(time_left(10, 0, 20, 50, 100), 300)  # 10 steps per 100 s, 30 to go
+        self.assertIsNone(time_left(10, 0, 10, 50, 100))     # no progress yet
+        self.assertIsNone(time_left(10, 0, 50, 50, 100))     # done
 
 
 class PidAlive(unittest.TestCase):

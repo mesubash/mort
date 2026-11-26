@@ -13,7 +13,8 @@ def main(argv=None):
     run.add_argument("--name", help="job name (default: the command's name)")
     run.add_argument("--lock", action="store_true", help="take the lock from config while the job runs")
     run.add_argument("--stall", type=float, default=20, metavar="MIN",
-                     help="report a stall after MIN minutes without log output (default 20, 0 turns it off)")
+                     help="report a stall after MIN minutes without log output, or without change in --watch (default 20, 0 off)")
+    run.add_argument("--watch", metavar="REGEX", help="a number that must keep changing, e.g. 'loss=([0-9.]+)'; stall then means it stopped")
     run.add_argument("cmd", nargs=argparse.REMAINDER, help="-- command and arguments")
     tr = sub.add_parser("track", help="watch something mort did not start").add_subparsers(dest="kind", required=True)
     tp = tr.add_parser("pid", help="adopt a running process")
@@ -21,6 +22,7 @@ def main(argv=None):
     tp.add_argument("--name", help="job name (default: the process name)")
     tp.add_argument("--log", help="the job's log file, for stall checks and --done")
     tp.add_argument("--stall", type=float, default=20, metavar="MIN", help="minutes without log output (default 20, 0 off)")
+    tp.add_argument("--watch", metavar="REGEX", help="a number in the log that must keep changing (needs --log)")
     tp.add_argument("--done", metavar="TEXT", help="text the log ends with on success; without it an ended job counts as died")
     ts = tr.add_parser("ssh", help="watch a STATUS file on a remote host (read-only, one ssh per check)")
     ts.add_argument("host")
@@ -50,7 +52,7 @@ def main(argv=None):
         if not cmd:
             parser.error("run needs a command after --")
         lock = config.get("lock", {}) if args.lock else None
-        name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock)
+        name, pid, log = start(cmd, args.name, args.stall * 60 or None, lock, args.watch)
         print(f"started {name} (pid {pid}), log {log}")
     elif args.command == "track" and args.kind == "kaggle":
         name = kaggle.track(args.kernel, args.name, args.pull)
@@ -66,7 +68,7 @@ def main(argv=None):
     elif args.command == "track":
         if args.done and not args.log:
             parser.error("--done needs --log")
-        name = track(args.pid, args.name, args.log, args.stall * 60 or None, args.done)
+        name = track(args.pid, args.name, args.log, args.stall * 60 or None, args.done, args.watch)
         print(f"tracking {name} (pid {args.pid})")
     elif args.command == "log":
         row = jobs.find(args.name)

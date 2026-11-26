@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -7,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from mort import github, kaggle, machine, remote, state
-from mort.rules import job_event, machine_alerts, pid_alive, stale_lock
+from mort.rules import job_event, machine_alerts, pid_alive, stale_lock, time_left
 from mort.run import lock_settings
 
 
@@ -35,12 +36,16 @@ def status(job, now=None):
     if not alive and code is None and job["done_marker"] and log and log.exists() and done_in(log, job["done_marker"]):
         code = 0
     last_output = log.stat().st_mtime if log and log.exists() else job["started"]
+    if job["watch"]:  # stall means the watched number stopped changing, however much the log grows
+        last_output = job["watch_changed"] or job["started"]
     event = job_event(alive, code, last_output, now, job["stall_after"])
     wrote = log is not None and log.exists() and log.stat().st_size > 0
     if event is None:
         out = f"output {ago(now - last_output)} ago" if wrote else "no output yet"
-        return "running", f"{ago(now - job['started'])}, {out}"
+        return "running", f"{ago(now - job['started'])}, {progress(job, now) or out}"
     if event == "stalled":
+        if job["watch"]:
+            return "stalled", f"{job['watch_value']} unchanged for {ago(now - last_output)}: {job['progress'] or ''}"[:120]
         return "stalled", f"no output for {ago(now - last_output)}"
     ended = exit_file if exit_file.exists() else log if log and log.exists() else None
     at = datetime.fromtimestamp(ended.stat().st_mtime).strftime("%H:%M") if ended else "?"
@@ -57,6 +62,47 @@ def signal_name(code):
         return ""
 
 
+COUNT = re.compile(r"(\d+)\s*/\s*(\d+)")
+
+
+def progress(job, now):
+    if not job["watch"] or not job["progress"]:
+        return ""
+    line = job["progress"][:60]
+    m = COUNT.search(job["progress"])
+    if m and job["progress_start"]:
+        n0, t0 = job["progress_start"].split()
+        left = time_left(int(n0), float(t0), int(m.group(1)), int(m.group(2)), now)
+        if left is not None:
+            line += f", ~{ago(left)} left"
+    return line
+
+
+def observe(db, job, now):
+    """Read the log's last lines for the watch regex; record the value, when it last changed, and progress."""
+    if not job["watch"] or not job["log"] or not Path(job["log"]).exists():
+        return
+    log = Path(job["log"])
+    with open(log, "rb") as f:
+        f.seek(max(0, log.stat().st_size - 16384))
+        lines = re.split(r"[\r\n]+", f.read().decode(errors="replace"))
+    rx = re.compile(job["watch"])
+    for line in reversed(lines):
+        m = rx.search(line)
+        if m:
+            break
+    else:
+        return
+    value = m.group(1)
+    changed = now if value != job["watch_value"] else job["watch_changed"]
+    start = job["progress_start"]
+    count = COUNT.search(line)
+    if count and not start:
+        start = f"{count.group(1)} {now}"
+    db.execute("UPDATE jobs SET watch_value = ?, watch_changed = ?, progress = ?, progress_start = ? WHERE name = ?",
+               (value, changed, line.strip()[:200], start, job["name"]))
+
+
 def done_in(log, marker, tail=8192):
     with open(log, "rb") as f:
         f.seek(max(0, log.stat().st_size - tail))
@@ -70,6 +116,9 @@ def summary(config, reading=None):
     lock_cfg = config.get("lock")
     db = state.connect()
     lines = ["JOBS"]
+    for row in db.execute("SELECT * FROM jobs WHERE watch IS NOT NULL").fetchall():
+        observe(db, row, time.time())
+    db.commit()
     rows = db.execute("SELECT * FROM jobs ORDER BY started DESC").fetchall()
     width = max([len(r["name"]) for r in rows] + [4])
     for row in rows:
@@ -167,6 +216,8 @@ def check(config, notify=notify, reading=None, gh_api=None):
     for row in db.execute("SELECT * FROM jobs WHERE kind IN ('ssh', 'kaggle')").fetchall():
         if row["last_event"] not in ("finished", "died"):
             (remote if row["kind"] == "ssh" else kaggle).poll(db, row, now)
+    for row in db.execute("SELECT * FROM jobs WHERE watch IS NOT NULL").fetchall():
+        observe(db, row, now)
     rows = db.execute("SELECT * FROM jobs").fetchall()
     for row in rows:
         st, detail = status(row)

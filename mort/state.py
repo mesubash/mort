@@ -25,6 +25,11 @@ ADDED = {
     "remote_at": "REAL",        # ssh: time of the last good read
     "tried_at": "REAL",
     "pull": "TEXT",             # kaggle: folder for the output
+    "watch": "TEXT",            # regex whose first group must keep changing
+    "watch_value": "TEXT",
+    "watch_changed": "REAL",
+    "progress": "TEXT",         # last log line the watch regex matched
+    "progress_start": "TEXT",   # "n time" when an N/M count was first seen
 }
 
 

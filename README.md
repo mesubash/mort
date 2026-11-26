@@ -62,8 +62,8 @@ LOCK
 
 | Command | What it does |
 | --- | --- |
-| `mort run [--name N] [--lock] [--stall MIN] -- CMD` | start a job detached and awake, log it, take the lock if asked |
-| `mort track pid PID [--log FILE] [--done TEXT]` | watch a process mort did not start; `--done` is the log text that means success |
+| `mort run [--name N] [--lock] [--stall MIN] [--watch RE] -- CMD` | start a job detached and awake, log it, take the lock if asked |
+| `mort track pid PID [--log FILE] [--done TEXT] [--watch RE]` | watch a process mort did not start; `--done` is the log text that means success |
 | `mort track ssh HOST PATH [--done RE] [--failed RE]` | watch a STATUS file on a remote host, read-only |
 | `mort track kaggle OWNER/KERNEL [--pull DIR]` | watch a Kaggle notebook run, download its output into an empty folder when done |
 | `mort track github` | notify when someone else comments on or reviews your open issues and pull requests |
@@ -72,6 +72,15 @@ LOCK
 | `mort kill NAME` | ask, then stop the job and its child processes; its lock is freed |
 | `mort forget NAME` | stop watching a job |
 | `mort daemon install \| uninstall \| status` | the launchd agent that runs `mort check` every minute |
+
+A job can be alive and still stuck: swapping, or training that stopped improving. `--watch` names a number in the log that must keep changing; if it stays the same for `--stall` minutes, mort reports a stall even while the log keeps growing. The last matching line is shown as progress, with time left when it holds a count like `12/50`:
+
+```console
+$ mort run --name train --stall 30 --watch 'loss=([0-9.]+)' -- python train.py
+$ mort
+JOBS
+ * train   running   1h02m, epoch 14/40 loss=0.48, ~1h55m left
+```
 
 The lock is a one-line file that other tools can read too. Set it in `~/.mort/config.toml`:
 
@@ -112,7 +121,7 @@ $ mort track kaggle user/my-kernel --pull runs/my-kernel
 
 - [x] **v0.1** local jobs: `mort run`, process and log watchers, lock file, macOS notifications
 - [ ] **v0.2** remote: ssh STATUS files, Kaggle, GitHub replies, swap and disk (built; in trial use)
-- [ ] **v0.3** stall rules: a number that must keep changing, progress line, time left
+- [ ] **v0.3** stall rules: a number that must keep changing, progress line, time left (built; in trial use)
 - [ ] **v1.0** public release: phone push, Homebrew, PyPI, Linux
 
 Details and later ideas are in [docs/PLAN.md](docs/PLAN.md).
