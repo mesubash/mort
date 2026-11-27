@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.1-yellowgreen" alt="Version 0.3.1">
+  <img src="https://img.shields.io/badge/version-0.3.2-yellowgreen" alt="Version 0.3.2">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey" alt="macOS and Linux">
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/dependencies-none-3fb950" alt="No dependencies">
