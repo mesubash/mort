@@ -135,6 +135,16 @@ Ideas recorded for after v1.0, in rough order. Each one waits for a request from
 | v1.6 | Local HTTP endpoint and MCP server so other tools (editors, scripts, assistants) can ask job status |
 | v2.0 | Hosted relay (paid): phone app or web page that works when the laptop is closed, shared view for a lab or small team, history of runs. The CLI stays free and open |
 
+### Disk: why (requested by the first user, 2026-11-26; build order not set)
+
+The low-disk warning says that space is low but not why. On the author's Mac, about 30 GB came back within nine days of a cleanup, almost all of it in a package manager's cache filled by one-off training environments. Finding that took an hour by hand. mort already knows the machine and the jobs, so it can say where the space went. mort still deletes nothing; cleaning stays with other tools.
+
+1. Growth in the warning: once a day, record the size of a short list of heavy folders (package caches, model caches, container data, project folders, Downloads; configurable). When free disk drops below the limit, the notification names the folders that grew most, e.g. `disk 3.6 GB free · package cache +31 GB this week`.
+2. Disk used per job: record free disk when a job starts and ends, and add the difference to its finished or died notice, e.g. `train finished · used 4.2 GB disk`.
+3. A hint, never an action: the warning can name a command that would free the space (a cache prune, a cleaner tool), for the user to run.
+
+Done when: on the author's Mac, a real low-disk warning names the folder that caused it, and one real training job reports its disk use.
+
 ## Income path
 
 The CLI is free under the MIT license. Income comes later, only if public use passes the phase 4 test, from the hosted relay in v2.0: a paid monthly plan for people who want alerts while their laptop is off and teams who share servers. Payment providers that pay out to the author's country are being checked separately; the hosted plan does not start until one is confirmed.
@@ -143,6 +153,7 @@ The CLI is free under the MIT license. Income comes later, only if public use pa
 
 - Scheduling or queuing jobs. Other tools do this (cron, SLURM, task runners), and mort only watches.
 - Acting without confirmation, such as killing a job automatically.
+- Cleaning disk space or deleting files. mort reports where space went; cleaner tools do the deleting.
 - Collecting usage data.
 - A plugin system before three outside contributors ask for the same kind of watcher.
 
