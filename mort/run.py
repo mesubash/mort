@@ -40,6 +40,10 @@ def lock_settings(lock):
     return path, fmt, len(fields) - fields.index("{pid}")
 
 
+def free_gb():
+    return shutil.disk_usage(Path.home()).free / 1024 ** 3
+
+
 def check_free(db, name):
     if not NAME.fullmatch(name):
         raise SystemExit(f"mort: bad job name {name!r}; use letters, digits, '.', '_' or '-'")
@@ -81,10 +85,10 @@ def track(pid, name=None, log=None, stall_after=1200, done=None, watch=None):
     started = datetime.strptime(lstart, "%a %b %d %H:%M:%S %Y").timestamp() if lstart else time.time()
     if watch and log is None:
         raise SystemExit("mort: --watch needs --log")
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, done_marker, watch)"
-               " VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)",
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, done_marker, watch,"
+               " disk_start) VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)",
                (name, pid, ps(pid, "command"), str(log) if log else None, started,
-                stall_after if log else None, done, check_watch(watch)))
+                stall_after if log else None, done, check_watch(watch), free_gb()))
     db.commit()
     return name
 
@@ -119,9 +123,9 @@ def start(cmd, name=None, stall_after=1200, lock=None, watch=None, watch_log=Non
         line = fmt.format(
             name=name, pid=pid, cwd=Path.cwd().name, start=datetime.fromtimestamp(started).strftime("%Y-%m-%d_%H:%M"))
         lock_path.write_text(line + "\n")
-    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, watch, watch_log)"
-               " VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)",
+    db.execute("INSERT OR REPLACE INTO jobs (name, pid, cmd, log, started, stall_after, lock, last_event, watch, watch_log,"
+               " disk_start) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
                (name, pid, " ".join(cmd), str(log), started, stall_after, int(lock_path is not None), watch,
-                str(Path(watch_log).expanduser().absolute()) if watch_log else None))
+                str(Path(watch_log).expanduser().absolute()) if watch_log else None, free_gb()))
     db.commit()
     return name, pid, log

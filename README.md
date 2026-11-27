@@ -132,6 +132,15 @@ $ mort track github
 
 Always on. mort warns when swap use passes a limit (default: half of RAM), because a job that swaps hard can crawl for hours, and when free disk drops below a limit (default 4 GB).
 
+The disk warning also says why. Once a day mort records the size of the usual heavy folders (package and model caches, Docker data, Downloads, project folders), one level deep, and the warning names what grew most that week, with a command that frees it when mort knows one:
+
+```console
+disk low: 3.6 GB free
+~/.cache/uv +31 GB this week (uv cache clean)
+```
+
+`mort disk` shows the biggest folders and this week's growth at any time. A finished or died notice also says how much disk the job used. mort never deletes anything itself.
+
 ### A shared lock
 
 If several tools share a machine, a one-line lock file can say which heavy job is running. `mort run --lock` takes it, refuses to start while another live job holds it, and frees it when the job ends. If a job crashes without freeing it, the daemon frees it. A stale lock written by another tool is reported but never deleted.
@@ -174,6 +183,9 @@ token = "tk_..."                     # only for a server that needs one
 
 [notify]
 quiet = "23:00-07:00"
+
+[disk]
+folders = ["~/.cache", "~/Library/Caches", "~/Downloads", "~/Developer"]   # default: the usual heavy folders that exist
 ```
 
 ## Commands
@@ -187,6 +199,7 @@ quiet = "23:00-07:00"
 | `mort track github` | notify on replies to your open issues and pull requests |
 | `mort` | jobs, lock, machine, replies, and a warning if the daemon is off |
 | `mort log NAME [-n 50] [-f]` | show or follow a job's log |
+| `mort disk [--measure]` | the biggest folders, growth this week, and commands that free space |
 | `mort kill NAME` | ask, then stop a local job and its child processes |
 | `mort forget NAME` | stop watching a job (`mort forget github` turns off replies) |
 | `mort daemon install \| uninstall \| status` | the background check, every minute |

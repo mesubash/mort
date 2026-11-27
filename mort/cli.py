@@ -3,7 +3,7 @@ import os
 import sys
 import time
 
-from mort import __version__, daemon, github, jobs, kaggle, macapp, notify, remote, state
+from mort import __version__, daemon, disk, github, jobs, kaggle, macapp, notify, remote, state
 from mort.run import start, track
 
 
@@ -46,6 +46,8 @@ def main(argv=None):
     log.add_argument("-f", action="store_true", help="keep following the log")
     sub.add_parser("kill", help="stop a job after asking, and free its lock").add_argument("name")
     sub.add_parser("check", help="apply the rules once and send new events (the daemon runs this)")
+    dk = sub.add_parser("disk", help="where disk space went: biggest folders, growth this week, commands that free it")
+    dk.add_argument("--measure", action="store_true", help="measure the folders now (the daemon does this daily)")
     dm = sub.add_parser("daemon", help="run mort check every minute in the background (launchd on macOS, a systemd user timer on Linux)")
     dm.add_argument("action", choices=["install", "uninstall", "status"])
     sub.add_parser("forget", help="stop watching a job").add_argument("name")
@@ -98,6 +100,14 @@ def main(argv=None):
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
     elif args.command == "check":
         jobs.check(config, notify.make(config))
+    elif args.command == "disk":
+        db = state.connect()
+        if args.measure:
+            paths = disk.folders(config)
+            disk.record(db, disk.measure(paths), time.time())
+            db.commit()
+            print(f"measured {len(paths)} folders")
+        print("\n".join(disk.report(db, time.time())))
     elif args.command == "daemon":
         if args.action == "install":
             plist, log = daemon.install()

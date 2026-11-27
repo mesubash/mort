@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from mort import github, kaggle, machine, remote, state
+from mort import disk, github, kaggle, machine, remote, state
 from mort.rules import job_event, machine_alerts, pid_alive, stale_lock, time_left
 from mort.run import lock_settings
 
@@ -149,10 +149,10 @@ def summary(config, reading=None):
         else:
             lock = f"held: {text}"
         lines += ["LOCK", f"   {lock}"]
-    swap, disk, ram = reading or machine.readings()
+    swap, free, ram = reading or machine.readings()
     swap_max, disk_min = machine.limits(config, ram)
     swap_txt = "swap ?" if swap is None else f"swap {swap:.1f} GB used{' !' if swap > swap_max else ''}"
-    lines += ["MACHINE", f"   {swap_txt}   disk {disk:.1f} GB free{' !' if disk < disk_min else ''}"]
+    lines += ["MACHINE", f"   {swap_txt}   disk {free:.1f} GB free{' !' if free < disk_min else ''}"]
     lines += github.summary(db, time.time())
     return "\n".join(lines)
 
@@ -232,11 +232,13 @@ def check(config, notify, reading=None, gh_api=None):
             continue
         if new == "finished" and row["kind"] == "kaggle" and row["pull"]:
             detail = kaggle.pull_output(row)
+        if new in ("finished", "died") and row["disk_start"] is not None:
+            detail += disk_used(row["disk_start"], (reading or machine.readings())[1])
         if new is not None:
             notify(f"{row['name']} {st}", detail)
         db.execute("UPDATE jobs SET last_event = ? WHERE name = ?", (new, row["name"]))
     db.commit()  # saved before the other watchers, so a failure below cannot make these repeat
-    watchers = [lambda: check_machine(db, config, notify, reading or machine.readings()),
+    watchers = [lambda: check_machine(db, config, notify, reading or machine.readings(), measure_disk=reading is None),
                 lambda: github.check(db, notify, now, **({"api": gh_api} if gh_api else {}))]
     if lock_cfg is not None:
         watchers.insert(0, lambda: check_lock(db, lock_cfg, {r["pid"]: r["name"] for r in rows if r["lock"]}, notify))
@@ -249,15 +251,26 @@ def check(config, notify, reading=None, gh_api=None):
             print(f"mort: check failed: {type(e).__name__}: {e}", flush=True)
 
 
-def check_machine(db, config, notify, reading):
-    swap, disk, ram = reading
+def disk_used(start_gb, now_gb):
+    """' · used 4.2 GB disk' for the change in free disk while a job ran; '' when under 0.1 GB."""
+    used = start_gb - now_gb
+    if abs(used) < 0.1:
+        return ""
+    return f" · used {used:.1f} GB disk" if used > 0 else f" · {-used:.1f} GB more free disk"
+
+
+def check_machine(db, config, notify, reading, measure_disk=True):
+    swap, free, ram = reading
     swap_max, disk_min = machine.limits(config, ram)
     active = {r["key"] for r in db.execute("SELECT key FROM alerts WHERE key IN ('swap', 'disk')")}
-    on = machine_alerts(swap, disk, swap_max, disk_min, active)
+    on = machine_alerts(swap, free, swap_max, disk_min, active)
     if "swap" in on - active:
         notify(f"swap high: {swap:.1f} GB used", "a job may be thrashing; it can crawl for hours")
     if "disk" in on - active:
-        notify(f"disk low: {disk:.1f} GB free", f"below {disk_min:g} GB")
+        cause = disk.why(db, time.time())
+        notify(f"disk low: {free:.1f} GB free", cause or f"below {disk_min:g} GB; see: mort disk")
+    if disk.due(db, time.time()) and measure_disk:
+        disk.start_measure()
     db.execute("DELETE FROM alerts WHERE key IN ('swap', 'disk')")
     db.executemany("INSERT INTO alerts VALUES (?, NULL)", [(k,) for k in on])
 

@@ -2,6 +2,10 @@
 
 Dated decisions and progress, newest first.
 
+## 2026-11-27
+
+- Built "Disk: why" (PLAN, Later versions). Folders: `[disk] folders`, else the usual heavy ones that exist (`~/.cache`, `~/Library/Caches`, Docker data, Downloads, conda, ollama, gradle, maven, npm, `~/.local/share`, project folders like `~/Developer`). `du -k -d 1` per folder, so the warning can name `~/.cache/uv` rather than `~/.cache`; a folder is dropped from the ranking when one child explains at least 70% of its growth. Measuring runs once a day in its own process (`mort disk --measure`, started by the check), so `du` never holds up the minute check; sizes are kept 30 days in `disk_sizes`. The low-disk notice names the one or two folders that grew at least 1 GB over the last 7 days (needs half a day of history), each with a hint command when known (uv, pip, conda, Homebrew, npm, Docker, Hugging Face, Poetry, Xcode DerivedData); mort runs none of them. Per job: free disk at start (`disk_start`), and finished or died notices add `used N GB disk` (the change in free disk, so other activity on the machine counts too). `mort disk` prints biggest folders, growth and hints. Survey before building, on the author's Mac: `~/.cache/uv` 33 GB, `~/.cache/huggingface` 4.5 GB, Docker 11 GB.
+
 ## 2026-11-26
 
 - Plan change: added "Disk: why" under Later versions (growth named in the low-disk warning, disk used per job, a hint command), and "cleaning disk space" under Not planned. Reason: a real case on the author's Mac, where a package cache refilled about 30 GB within nine days of a cleanup and the existing warning gave no cause. Build later; order not set.
