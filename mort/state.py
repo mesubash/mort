@@ -47,11 +47,24 @@ def connect(path=None):
     db.row_factory = sqlite3.Row
     db.execute(SCHEMA)
     db.execute(ALERTS)
-    have = {r[1] for r in db.execute("PRAGMA table_info(jobs)")}
+    old = columns(db)
+    if old["pid"]:  # state.db from before pid was optional: ssh, kaggle and github jobs have none
+        db.execute("ALTER TABLE jobs RENAME TO jobs_old")
+        db.execute(SCHEMA)
     for column, kind in ADDED.items():  # columns newer than an existing state.db
-        if column not in have:
+        if column not in columns(db):
             db.execute(f"ALTER TABLE jobs ADD COLUMN {column} {kind}")
+    if old["pid"]:
+        cols = ", ".join(old)
+        db.execute(f"INSERT INTO jobs ({cols}) SELECT {cols} FROM jobs_old")
+        db.execute("DROP TABLE jobs_old")
+        db.commit()
     return db
+
+
+def columns(db):
+    """jobs column name -> 1 if NOT NULL."""
+    return {r[1]: r[3] for r in db.execute("PRAGMA table_info(jobs)")}
 
 
 def load_config():

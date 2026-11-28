@@ -2,6 +2,10 @@
 
 Dated decisions and progress, newest first.
 
+## 2026-11-28
+
+- Bug: a `state.db` made by the first releases kept `pid INTEGER NOT NULL`, because the upgrade only added new columns. `track kaggle` (and other jobs with no process) then failed with `NOT NULL constraint failed: jobs.pid`. `state.connect()` now rebuilds the table once when it finds that constraint, keeping every row. Test: `tests/test_state.py`.
+
 ## 2026-11-27
 
 - Release 0.3.2 (tag and GitHub release made by the user): disk growth in the low-disk warning, disk used per job, `mort disk`. Tap formula updated to the v0.3.2 tarball. "Done when" for Disk: why still needs a real low-disk warning naming its cause (after a few days of daily sizes) and a real training job reporting its disk use.
