@@ -157,6 +157,34 @@ def summary(config, reading=None):
     return "\n".join(lines)
 
 
+ENDED = ("finished", "died", "stalled")
+
+
+def as_dict(row, now=None):
+    """One job as plain data for scripts and coding agents (mort status --json, mort wait)."""
+    st, detail = status(row, now)
+    log = watched_log(row) if row["kind"] == "local" else None
+    return {"name": row["name"], "kind": row["kind"], "state": st, "detail": detail, "last_event": row["last_event"],
+            "started": row["started"], "pid": row["pid"], "target": row["target"], "log": str(log) if log else None,
+            "pull": row["pull"]}
+
+
+def wait(name, timeout=None, every=30, check=None, sleep=time.sleep, clock=time.time):
+    """Block until a job finishes, dies or stalls; return it as a dict, or None when timeout seconds pass first.
+    check, if given, runs the rules once per round (used when no daemon is running)."""
+    find(name)
+    deadline = clock() + timeout if timeout else None
+    while True:
+        if check:
+            check()
+        row = find(name)
+        if status(row)[0] in ENDED:
+            return as_dict(row)
+        if deadline and clock() >= deadline:
+            return None
+        sleep(every)
+
+
 def find(name):
     row = state.connect().execute("SELECT * FROM jobs WHERE name = ?", (name,)).fetchone()
     if row is None:

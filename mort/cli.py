@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 import time
@@ -45,6 +46,14 @@ def main(argv=None):
     log.add_argument("-n", type=int, default=20, help="lines to show (default 20)")
     log.add_argument("-f", action="store_true", help="keep following the log")
     sub.add_parser("kill", help="stop a job after asking, and free its lock").add_argument("name")
+    st = sub.add_parser("status", help="list jobs; --json for scripts and coding agents")
+    st.add_argument("name", nargs="?", help="one job (default: all)")
+    st.add_argument("--json", action="store_true", help="print JSON: name, kind, state, detail, last_event, log, pull, ...")
+    wt = sub.add_parser("wait", help="block until a job finishes, dies or stalls; prints it as JSON (exit 0 finished, "
+                                     "1 died, 2 stalled, 3 timeout)")
+    wt.add_argument("name")
+    wt.add_argument("--timeout", type=float, metavar="MIN", help="give up after MIN minutes (default: wait forever)")
+    wt.add_argument("--every", type=float, default=30, metavar="SEC", help="seconds between looks (default 30)")
     sub.add_parser("check", help="apply the rules once and send new events (the daemon runs this)")
     dk = sub.add_parser("disk", help="where disk space went: biggest folders, growth this week, commands that free it")
     dk.add_argument("--measure", action="store_true", help="measure the folders now (the daemon does this daily)")
@@ -98,6 +107,19 @@ def main(argv=None):
     elif args.command == "forget":
         running, pid = jobs.forget(args.name)
         print(f"forgot {args.name}" + (f"; it is still running as pid {pid}" if running else ""))
+    elif args.command == "status" and args.json:
+        db = state.connect()
+        rows = [jobs.find(args.name)] if args.name else db.execute("SELECT * FROM jobs ORDER BY started DESC").fetchall()
+        out = [jobs.as_dict(r) for r in rows]
+        print(json.dumps(out[0] if args.name else out, indent=1))
+    elif args.command == "status" and args.name:
+        print(json.dumps(jobs.as_dict(jobs.find(args.name)), indent=1))
+    elif args.command == "wait":
+        # Without the daemon nothing else applies the rules, so wait does it itself (each event is still sent once).
+        check = None if daemon.running() else (lambda: jobs.check(config, notify.make(config)))
+        job = jobs.wait(args.name, args.timeout and args.timeout * 60, args.every, check)
+        print(json.dumps(job if job else {"name": args.name, "state": "timeout"}))
+        sys.exit({"finished": 0, "died": 1, "stalled": 2}[job["state"]] if job else 3)
     elif args.command == "check":
         jobs.check(config, notify.make(config))
     elif args.command == "disk":

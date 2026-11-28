@@ -132,7 +132,7 @@ Ideas recorded for after v1.0, in rough order. Each one waits for a request from
 | v1.3 | Menu-bar view: start as a SwiftBar/xbar plugin that prints `mort` output, a native app only if the plugin is not enough |
 | v1.4 | Terminal UI (`mort watch`) with live progress for all jobs |
 | v1.5 | Daily digest: one message each morning with what finished, failed and is still waiting |
-| v1.6 | Machine-readable status for other tools (editors, scripts, coding assistants): first `mort status --json` (name, kind, state, last event, pull folder), so an assistant can read what finished or died at the start of a session without querying `state.db`; then a local HTTP endpoint and MCP server if that is not enough |
+| v1.6 | Machine-readable status for other tools (editors, scripts, coding assistants): `mort status --json` and `mort wait` shipped early in v0.4.0; next a local HTTP endpoint and MCP server if those are not enough |
 | v2.0 | Hosted relay (paid): phone app or web page that works when the laptop is closed, shared view for a lab or small team, history of runs. The CLI stays free and open |
 
 ### Disk: why (requested by the first user, 2026-11-26; build order not set)

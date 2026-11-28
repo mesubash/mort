@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.2-yellowgreen" alt="Version 0.3.2">
+  <img src="https://img.shields.io/badge/version-0.4.0-yellowgreen" alt="Version 0.4.0">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey" alt="macOS and Linux">
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/dependencies-none-3fb950" alt="No dependencies">
@@ -145,6 +145,18 @@ disk low: 3.6 GB free
 
 If several tools share a machine, a one-line lock file can say which heavy job is running. `mort run --lock` takes it, refuses to start while another live job holds it, and frees it when the job ends. If a job crashes without freeing it, the daemon frees it. A stale lock written by another tool is reported but never deleted.
 
+### Scripts and coding agents
+
+Two commands give the same information as plain data, so a script or a coding agent can act on it without parsing text or reading mort's database.
+
+```console
+$ mort status --json              # every job: name, kind, state, detail, last_event, log, pull, ...
+$ mort status train --json        # one job
+$ mort wait train --timeout 600   # block until it finishes, dies or stalls; print it as JSON
+```
+
+`mort wait` exits 0 when the job finished, 1 when it died, 2 when it stalled and 3 on timeout. A coding agent that can run commands in the background can start `mort wait <job>` and be woken when the job changes, with the same died, stalled and finished rules mort uses for notifications. Run `mort status --json` when a session starts to see what changed while nothing was watching. If the daemon is off, `mort wait` applies the rules itself.
+
 ## Notifications
 
 Every event goes to the desktop and to the daemon log, `~/.mort/daemon.log`. On macOS, `mort daemon install` also builds a small `~/.mort/mort.app`, so notices appear as **mort** with its icon; the first one may ask you to allow notifications from mort. On Linux they go through `notify-send`.
@@ -198,6 +210,8 @@ folders = ["~/.cache", "~/Library/Caches", "~/Downloads", "~/Developer"]   # def
 | `mort track kaggle OWNER/KERNEL [--pull DIR] [--every MIN]` | watch a Kaggle notebook run, download its output when done |
 | `mort track github` | notify on replies to your open issues and pull requests |
 | `mort` | jobs, lock, machine, replies, and a warning if the daemon is off |
+| `mort status [NAME] --json` | jobs as JSON, for scripts and coding agents |
+| `mort wait NAME [--timeout MIN]` | block until a job finishes, dies or stalls; exit 0, 1, 2 (3 on timeout) |
 | `mort log NAME [-n 50] [-f]` | show or follow a job's log |
 | `mort disk [--measure]` | the biggest folders, growth this week, and commands that free space |
 | `mort kill NAME` | ask, then stop a local job and its child processes |
@@ -219,6 +233,7 @@ folders = ["~/.cache", "~/Library/Caches", "~/Downloads", "~/Developer"]   # def
 - [x] **v0.2** ssh STATUS files, Kaggle, GitHub replies, swap and disk
 - [x] **v0.3** watched-number stalls, progress, time left; phone push, quiet hours, Linux
 - [x] **v0.3.0** public: GitHub release, Homebrew tap
+- [x] **v0.4** `mort status --json` and `mort wait` for scripts and coding agents
 - [ ] PyPI package `mort-watcher`
 
 Details and later ideas are in [docs/PLAN.md](docs/PLAN.md).

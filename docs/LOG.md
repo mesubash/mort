@@ -4,6 +4,7 @@ Dated decisions and progress, newest first.
 
 ## 2026-11-28
 
+- Release 0.4.0 (user asked for it): `mort status [NAME] --json` and `mort wait NAME [--timeout MIN]`. Why: a coding agent running long jobs loses track of them when its own watcher dies or the session ends; `wait` lets it be woken by mort's rules (exit 0 finished, 1 died, 2 stalled, 3 timeout), `status --json` shows what changed while nothing watched. Without the daemon, `wait` applies the rules itself. Moved ahead of the v1.6 HTTP/MCP work. Tests: `tests/test_agent.py`.
 - Bug: a `state.db` made by the first releases kept `pid INTEGER NOT NULL`, because the upgrade only added new columns. `track kaggle` (and other jobs with no process) then failed with `NOT NULL constraint failed: jobs.pid`. `state.connect()` now rebuilds the table once when it finds that constraint, keeping every row. Test: `tests/test_state.py`.
 - Bug found in real use: a Kaggle output download caught by Mac idle sleep hung in an SSL read for over an hour. Its 30-minute timeout never fired, because subprocess timeouts use the monotonic clock, which stops during sleep, and the hung call blocked every later `mort check`. Fix: `run.capped()` enforces a wall-clock deadline and kills the whole process group; Kaggle, ssh and GitHub calls use it. Test: `tests/test_kaggle.py`.
 - Plan (user agreed): v1.6 now starts with `mort status --json`. Reason: a coding assistant reading `state.db` directly breaks whenever the schema changes, as the bug above showed.
