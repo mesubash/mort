@@ -5,6 +5,7 @@ Dated decisions and progress, newest first.
 ## 2026-11-28
 
 - Bug: a `state.db` made by the first releases kept `pid INTEGER NOT NULL`, because the upgrade only added new columns. `track kaggle` (and other jobs with no process) then failed with `NOT NULL constraint failed: jobs.pid`. `state.connect()` now rebuilds the table once when it finds that constraint, keeping every row. Test: `tests/test_state.py`.
+- Bug found in real use: a Kaggle output download caught by Mac idle sleep hung in an SSL read for over an hour. Its 30-minute timeout never fired, because subprocess timeouts use the monotonic clock, which stops during sleep, and the hung call blocked every later `mort check`. Fix: `run.capped()` enforces a wall-clock deadline and kills the whole process group; Kaggle, ssh and GitHub calls use it. Test: `tests/test_kaggle.py`.
 - Plan (user agreed): v1.6 now starts with `mort status --json`. Reason: a coding assistant reading `state.db` directly breaks whenever the schema changes, as the bug above showed.
 
 ## 2026-11-27

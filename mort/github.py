@@ -2,6 +2,8 @@ import json
 import subprocess
 from datetime import datetime, timezone
 
+from mort.run import capped
+
 INTERVAL = 300  # GitHub rate limits; replies are not minute-urgent
 
 
@@ -9,7 +11,7 @@ def gh(path, **params):
     args = ["gh", "api", "-X", "GET", path]
     for k, v in params.items():
         args += ["-f", f"{k}={v}"]
-    out = subprocess.run(args, capture_output=True, text=True, timeout=60)
+    out = capped(args, 60)
     if out.returncode != 0:
         raise RuntimeError(out.stderr.strip() or "gh api failed")
     return json.loads(out.stdout)

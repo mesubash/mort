@@ -5,7 +5,7 @@ import time
 from pathlib import PurePosixPath
 
 from mort import state
-from mort.run import check_free
+from mort.run import capped, check_free
 
 HOST = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._@-]*")  # never starts with "-", so it cannot pass ssh an option
 BACKOFF = 300
@@ -15,7 +15,7 @@ def read(host, path, timeout=20):
     """Last lines of a remote file with one read-only ssh command: (text, error). Missing file is ("", None)."""
     cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "tail -n 5 -- " + shlex.quote(path)]
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        out = capped(cmd, timeout)
     except subprocess.TimeoutExpired:
         return None, "ssh timed out"
     except OSError as e:

@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import signal
 import subprocess
 import time
 from datetime import datetime
@@ -10,6 +11,23 @@ from mort import state
 from mort.rules import pid_alive, stale_lock
 
 NAME = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def capped(args, timeout):
+    """subprocess.run(args, capture_output=True, text=True, timeout=timeout), but the timeout is wall-clock time.
+    subprocess timeouts use the monotonic clock, which stops while the Mac sleeps, and a network call caught by
+    sleep can hang in a socket read forever, blocking every later check. Raises subprocess.TimeoutExpired."""
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+    deadline = time.time() + timeout
+    while True:
+        try:
+            out, err = p.communicate(timeout=min(5, timeout))
+            return subprocess.CompletedProcess(args, p.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            if time.time() > deadline:
+                os.killpg(p.pid, signal.SIGKILL)  # the whole group: a child holding the pipes would block communicate()
+                p.communicate()
+                raise
 
 # Runs the job, saves its exit code, then frees the lock if the lock still names this wrapper.
 # The first loop waits for mort to write the lock, so a job that ends at once still frees it.

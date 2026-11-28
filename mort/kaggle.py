@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from mort import state
-from mort.run import check_free
+from mort.run import capped, check_free
 
 SLUG = re.compile(r"[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+")
 INTERVAL = 300  # Kaggle rate limits
@@ -15,7 +15,7 @@ STATES = {"QUEUED": "running", "RUNNING": "running", "COMPLETE": "finished", "ER
 def kaggle(*args, timeout=120):
     """Run the kaggle CLI. mort never reads the user's Kaggle token; the CLI does."""
     try:
-        out = subprocess.run(["kaggle", *args], capture_output=True, text=True, timeout=timeout)
+        out = capped(["kaggle", *args], timeout)
     except subprocess.TimeoutExpired:
         return None, "kaggle timed out"
     except OSError as e:
