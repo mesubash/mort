@@ -5,6 +5,7 @@ Dated decisions and progress, newest first.
 ## 2026-11-28
 
 - Bug: a `state.db` made by the first releases kept `pid INTEGER NOT NULL`, because the upgrade only added new columns. `track kaggle` (and other jobs with no process) then failed with `NOT NULL constraint failed: jobs.pid`. `state.connect()` now rebuilds the table once when it finds that constraint, keeping every row. Test: `tests/test_state.py`.
+- Plan (user agreed): v1.6 now starts with `mort status --json`. Reason: a coding assistant reading `state.db` directly breaks whenever the schema changes, as the bug above showed.
 
 ## 2026-11-27
 
